@@ -9,7 +9,7 @@ mod tests {
     fn query_example() {
         let expected =
             String::from("3c5f0100000100000000000003777777076578616d706c6503636f6d0000010001");
-        let res = build_query(String::from("www.example.com"), Type::A);
+        let res = build_query("www.example.com", Type::A);
         let res_hex = hex::encode(res);
         assert_eq!(res_hex[4..], expected[4..]);
     }
