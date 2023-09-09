@@ -1,7 +1,8 @@
 #[cfg(test)]
 mod tests {
-    use dnsvisor::query::{build_query, encode_dns_name};
+    use dnsvisor::query::build_query;
     use dnsvisor::rr_fields::Type;
+    use dnsvisor::util::encode_dns_name;
     use hex;
     use pretty_assertions::assert_eq;
 
