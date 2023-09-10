@@ -17,26 +17,27 @@ pub fn encode_dns_name(domain_name: &str) -> Vec<u8> {
 pub fn decode_dns_name(reader: &mut Cursor<&[u8]>) -> String {
     let mut parts: Vec<String> = vec![];
     let mut part: [u8; 63] = [0; 63];
-    let mut length: [u8; 1] = [0; 1];
-    reader.read_exact(&mut length).unwrap();
-    while length[0] != 0 {
-        if length[0] == 0b1100_0000 {
-            parts.push(decode_compressed_name(length[0], reader));
+    let mut length_buf: [u8; 1] = [0; 1];
+    reader.read_exact(&mut length_buf).unwrap();
+    while length_buf[0] != 0 {
+        let length = length_buf[0] as u64;
+        if length_buf[0] == 0b1100_0000 {
+            parts.push(decode_compressed_name(length, reader));
             break;
         } else {
-            reader.take(length[0] as u64).read_exact(&mut part).unwrap();
-            parts.push(String::from_utf8(part.to_vec()).unwrap());
+            let _ = reader.take(length).read(&mut part).unwrap();
+            parts.push(String::from_utf8((part[0..(length as usize)]).to_vec()).unwrap());
             part.iter_mut().for_each(|x| *x = 0);
         }
-        reader.read_exact(&mut length).unwrap();
+        reader.read_exact(&mut length_buf).unwrap();
     }
     parts.join(".")
 }
 
-fn decode_compressed_name(length: u8, reader: &mut Cursor<&[u8]>) -> String {
+fn decode_compressed_name(length: u64, reader: &mut Cursor<&[u8]>) -> String {
     let mut byte: [u8; 1] = [0; 1];
     reader.read_exact(&mut byte).unwrap();
-    let pointer: u64 = (length & 0b0011_1111) as u64 + byte[0] as u64;
+    let pointer: u64 = (length & 0b0011_1111) + byte[0] as u64;
     let prev_position = reader.position();
     reader.set_position(pointer);
     let res = decode_dns_name(reader);
