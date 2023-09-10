@@ -8,10 +8,10 @@ use std::net::UdpSocket;
 
 pub fn build_query(domain_name: &str, record_type: Type) -> Vec<u8> {
     let id: u16 = random();
-    let recursion_desired = 1 << 8;
+    let no_recursion = 0;
     let header = DnsHeader {
         id,
-        flags: recursion_desired,
+        flags: no_recursion,
         num_questions: 1,
         num_answers: 0,
         num_authorities: 0,
@@ -28,8 +28,7 @@ pub fn send_query(nameserver: &str, domain_name: &str, record_type: Type) -> Dns
     let mut buf: [u8; 1024] = [0; 1024];
     let query = build_query(domain_name, record_type);
     let socket = UdpSocket::bind("0.0.0.0:0").unwrap();
-    let _res = socket.send_to(&query, nameserver).unwrap();
+    let _res = socket.send_to(&query, (nameserver, 53)).unwrap();
     let (num_bytes, src_addr) = socket.recv_from(&mut buf).unwrap();
-    println!("Received {} bytes from {}", num_bytes, src_addr);
     DnsPacket::from_bytes(&buf)
 }

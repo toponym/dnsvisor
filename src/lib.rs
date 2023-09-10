@@ -8,9 +8,19 @@ pub mod record;
 pub mod rr_fields;
 pub mod util;
 
-pub fn resolve(domain_name: &str) -> String {
-    let google_nameserver = "8.8.8.8:53";
-    // TODO make real resolver
-    let res = query::send_query(google_nameserver, domain_name, Type::A);
-    format!("{:?}", res)
+pub fn resolve(domain_name: &str, record_type: Type) -> String {
+    // Verisign root nameserver
+    let root_nameserver = String::from("198.41.0.4");
+    let mut nameserver = root_nameserver;
+    loop {
+        println!("[+] Querying {} for {}", nameserver, domain_name);
+        let response = query::send_query(&nameserver, domain_name, record_type);
+        if let Some(ip) = response.get_answer(){
+            return ip;
+        } else if let Some(ns_ip) = response.get_nameserver_ip(){
+            nameserver = ns_ip;
+        } else if let Some(ns_domain) = response.get_nameserver(){
+            nameserver = resolve(&ns_domain, Type::A);
+        }
+    }
 }
