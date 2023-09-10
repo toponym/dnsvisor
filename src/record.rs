@@ -1,12 +1,13 @@
 use crate::util::decode_dns_name;
+use crate::rr_fields::Type;
 use std::io::{Cursor, Read};
 #[derive(Debug)]
 pub struct DnsRecord {
     name: String,
-    rtype: u16,
+    pub rtype: u16,
     class: u16,
     ttl: u32,
-    data: Vec<u8>,
+    pub data: Vec<u8>,
 }
 macro_rules! cursor_read_num {
     ($reader: expr, $buf: expr, $num_parser: path) => {{
@@ -32,6 +33,21 @@ impl DnsRecord {
             class,
             ttl,
             data,
+        }
+    }
+
+    pub fn fmt_data(&self) -> String {
+        let type_enum = Type::from(self.rtype);
+        match type_enum {
+            Type::A =>  {
+                // pretty-print Type::A records which contain IP addresses
+                assert!(self.data.len() == 4);
+                let converted: Vec<String>  = self.data.iter().map(|x| x.to_string()).collect();
+                converted.join(".")
+            },
+            Type::NS => {
+                format!("{:x?}", self.data)
+            }
         }
     }
 }
