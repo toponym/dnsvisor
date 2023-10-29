@@ -46,7 +46,8 @@ impl DnsRecord {
                 converted.join(".")
             }
             Type::NS => {
-                format!("{:x?}", self.data)
+                let mut cursor = Cursor::new(self.data.as_slice());
+                decode_dns_name(&mut cursor)
             }
         }
     }
