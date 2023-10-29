@@ -1,5 +1,5 @@
-use crate::util::decode_dns_name;
 use crate::rr_fields::Type;
+use crate::util::decode_dns_name;
 use std::io::{Cursor, Read};
 #[derive(Debug)]
 pub struct DnsRecord {
@@ -39,12 +39,12 @@ impl DnsRecord {
     pub fn fmt_data(&self) -> String {
         let type_enum = Type::from(self.rtype);
         match type_enum {
-            Type::A =>  {
+            Type::A => {
                 // pretty-print Type::A records which contain IP addresses
                 assert!(self.data.len() == 4);
-                let converted: Vec<String>  = self.data.iter().map(|x| x.to_string()).collect();
+                let converted: Vec<String> = self.data.iter().map(|x| x.to_string()).collect();
                 converted.join(".")
-            },
+            }
             Type::NS => {
                 format!("{:x?}", self.data)
             }
