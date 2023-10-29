@@ -40,7 +40,7 @@ impl DnsPacket {
         }
     }
 
-    pub fn get_answer(&self) -> Option<String>{
+    pub fn get_answer(&self) -> Option<String> {
         for answer in &self.answers {
             if answer.rtype == Type::A as u16 {
                 return Some(answer.fmt_data());
@@ -49,19 +49,19 @@ impl DnsPacket {
         None
     }
 
-    pub fn get_nameserver_ip(&self) -> Option<String>{
-        for record in &self.additionals{
-            if record.rtype == Type::A as u16{
-                return Some(record.fmt_data())
+    pub fn get_nameserver_ip(&self) -> Option<String> {
+        for record in &self.additionals {
+            if record.rtype == Type::A as u16 {
+                return Some(record.fmt_data());
             }
         }
         None
     }
 
-    pub fn get_nameserver(&self) -> Option<String>{
-        for auth in &self.authorities{
-            if auth.rtype == Type::NS as u16{
-                return Some(auth.fmt_data())
+    pub fn get_nameserver(&self) -> Option<String> {
+        for auth in &self.authorities {
+            if auth.rtype == Type::NS as u16 {
+                return Some(auth.fmt_data());
             }
         }
         None
