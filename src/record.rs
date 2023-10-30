@@ -2,6 +2,7 @@ use crate::rr_fields::Type;
 use crate::util::decode_dns_name;
 use std::io::{Cursor, Read};
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct DnsRecord {
     name: String,
     pub rtype: u16,
