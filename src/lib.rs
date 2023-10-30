@@ -25,6 +25,8 @@ pub fn resolve(domain_name: &str, record_type: Type) -> String {
         } else if let Some(ns_domain) = response.get_nameserver() {
             debug!("Got nameserver domain: {}", ns_domain);
             nameserver = resolve(&ns_domain, Type::A);
+        } else {
+            panic!("Unexpected response: {:?}", response);
         }
     }
 }

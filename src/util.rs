@@ -21,7 +21,7 @@ pub fn decode_dns_name(reader: &mut Cursor<&[u8]>) -> String {
     reader.read_exact(&mut length_buf).unwrap();
     while length_buf[0] != 0 {
         let length = length_buf[0] as u64;
-        if length_buf[0] == 0b1100_0000 {
+        if (length_buf[0] & 0b1100_0000) != 0 {
             parts.push(decode_compressed_name(length, reader));
             break;
         } else {

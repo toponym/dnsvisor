@@ -29,6 +29,6 @@ pub fn send_query(nameserver: &str, domain_name: &str, record_type: Type) -> Dns
     let query = build_query(domain_name, record_type);
     let socket = UdpSocket::bind("0.0.0.0:0").unwrap();
     let _res = socket.send_to(&query, (nameserver, 53)).unwrap();
-    let (num_bytes, src_addr) = socket.recv_from(&mut buf).unwrap();
+    let (_num_bytes, _src_addr) = socket.recv_from(&mut buf).unwrap();
     DnsPacket::from_bytes(&buf)
 }

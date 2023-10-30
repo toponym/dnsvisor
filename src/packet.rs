@@ -3,9 +3,9 @@ use crate::question::DnsQuestion;
 use crate::record::DnsRecord;
 use crate::rr_fields::Type;
 use std::io::Cursor;
-use std::str;
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct DnsPacket {
     header: DnsHeader,
     questions: Vec<DnsQuestion>,
