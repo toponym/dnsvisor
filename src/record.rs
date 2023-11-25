@@ -50,6 +50,7 @@ impl DnsRecord {
                 let mut cursor = Cursor::new(self.data.as_slice());
                 decode_dns_name(&mut cursor)
             }
+            Type::CNAME | Type::MX | Type::TXT => todo!(),
         }
     }
 }

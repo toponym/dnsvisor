@@ -3,6 +3,9 @@
 pub enum Type {
     A = 1,
     NS = 2,
+    CNAME = 5,
+    MX = 15,
+    TXT = 16,
 }
 
 impl From<u16> for Type {
@@ -10,6 +13,9 @@ impl From<u16> for Type {
         match val {
             1 => Type::A,
             2 => Type::NS,
+            5 => Type::CNAME,
+            15 => Type::MX,
+            16 => Type::TXT,
             _ => panic!(),
         }
     }
