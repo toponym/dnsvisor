@@ -18,13 +18,13 @@ pub fn resolve(domain_name: &str, record_type: Type) -> String {
         let response = query::send_query(&nameserver, domain_name, record_type);
         if let Some(ip) = response.get_answer() {
             debug!("Got ip: {}", ip);
-            return ip;
+            return ip.to_string();
         } else if let Some(ns_ip) = response.get_nameserver_ip() {
             debug!("Got nameserver ip: {}", ns_ip);
-            nameserver = ns_ip;
+            nameserver = ns_ip.to_string();
         } else if let Some(ns_domain) = response.get_nameserver() {
             debug!("Got nameserver domain: {}", ns_domain);
-            nameserver = resolve(&ns_domain, Type::A);
+            nameserver = resolve(ns_domain, Type::A);
         } else {
             panic!("Unexpected response: {:?}", response);
         }

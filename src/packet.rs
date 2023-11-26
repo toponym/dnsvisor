@@ -40,28 +40,28 @@ impl DnsPacket {
         }
     }
 
-    pub fn get_answer(&self) -> Option<String> {
+    pub fn get_answer(&self) -> Option<&str> {
         for answer in &self.answers {
-            if answer.rtype == Type::A as u16 {
-                return Some(answer.fmt_data());
+            if answer.rtype == Type::A {
+                return Some(&answer.data);
             }
         }
         None
     }
 
-    pub fn get_nameserver_ip(&self) -> Option<String> {
+    pub fn get_nameserver_ip(&self) -> Option<&str> {
         for record in &self.additionals {
-            if record.rtype == Type::A as u16 {
-                return Some(record.fmt_data());
+            if record.rtype == Type::A {
+                return Some(&record.data);
             }
         }
         None
     }
 
-    pub fn get_nameserver(&self) -> Option<String> {
+    pub fn get_nameserver(&self) -> Option<&str> {
         for auth in &self.authorities {
-            if auth.rtype == Type::NS as u16 {
-                return Some(auth.fmt_data());
+            if auth.rtype == Type::NS {
+                return Some(&auth.data);
             }
         }
         None
