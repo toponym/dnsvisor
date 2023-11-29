@@ -59,7 +59,8 @@ impl DnsRecord {
                 let addr = Ipv6Addr::from(data);
                 addr.to_string()
             }
-            Type::CNAME | Type::MX | Type::TXT => todo!(),
+            Type::CNAME => decode_dns_name(reader),
+            Type::MX | Type::TXT => todo!(),
         }
     }
 }

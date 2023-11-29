@@ -40,10 +40,11 @@ impl DnsPacket {
         }
     }
 
-    pub fn get_answer(&self) -> Option<&str> {
+    pub fn get_answer(&self) -> Option<(Type, &str)> {
         for answer in &self.answers {
-            if answer.rtype == Type::A {
-                return Some(&answer.data);
+            let answer_type = answer.rtype;
+            if answer_type == Type::A || answer_type == Type::CNAME {
+                return Some((answer_type, &answer.data));
             }
         }
         None

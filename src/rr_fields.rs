@@ -1,5 +1,5 @@
 /// Enums with values for DNS Resource Record (RR) fields
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Type {
     A = 1,
     NS = 2,
