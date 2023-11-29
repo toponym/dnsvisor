@@ -1,6 +1,8 @@
 use crate::rr_fields::Type;
 use crate::util::decode_dns_name;
 use std::io::{Cursor, Read};
+use std::net::{Ipv4Addr, Ipv6Addr};
+
 #[derive(Debug)]
 #[allow(dead_code)]
 pub struct DnsRecord {
@@ -41,17 +43,23 @@ impl DnsRecord {
         let data_size = cursor_read_num!(reader, buf_16, u16::from_be_bytes);
         match rtype {
             Type::A => {
+                assert!(data_size == 4);
                 // pretty-print Type::A records which contain IP addresses
-                let mut data = vec![0; data_size as usize];
+                let mut data = [0; 4];
                 reader.read_exact(&mut data).unwrap();
-                assert!(data.len() == 4);
-                let converted: Vec<String> = data.iter().map(|x| x.to_string()).collect();
-                converted.join(".")
+                let addr = Ipv4Addr::from(data);
+                addr.to_string()
             }
-            Type::NS => {
-                decode_dns_name(reader)
+            Type::NS => decode_dns_name(reader),
+            Type::AAAA => {
+                assert!(data_size == 16);
+                // pretty-print Type::AAAA records which contain IPv6 addresses
+                let mut data = [0; 16];
+                reader.read_exact(&mut data).unwrap();
+                let addr = Ipv6Addr::from(data);
+                addr.to_string()
             }
-            Type::CNAME | Type::MX | Type::TXT | Type::AAAA => todo!(),
+            Type::CNAME | Type::MX | Type::TXT => todo!(),
         }
     }
 }
