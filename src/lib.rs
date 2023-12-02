@@ -9,7 +9,12 @@ mod record;
 pub mod rr_fields;
 mod util;
 
-pub fn resolve(req_domain_name: &str, record_type: Type) -> String {
+#[derive(Debug)]
+pub enum DnsError {
+    ResolveError(String),
+}
+
+pub fn resolve(req_domain_name: &str, record_type: Type) -> Result<String, DnsError> {
     // Verisign root nameserver
     let root_nameserver = String::from("198.41.0.4");
     let mut nameserver = root_nameserver;
@@ -21,22 +26,30 @@ pub fn resolve(req_domain_name: &str, record_type: Type) -> String {
             match answer_type {
                 Type::A => {
                     debug!("Got ip: {}", answer);
-                    return answer.to_string();
+                    return Ok(answer.to_string());
                 }
                 Type::CNAME => {
                     debug!("Got CNAME domain: {}", answer);
                     domain_name = answer.to_string();
                 }
-                _ => panic!("Unexpected answer type: {:?}", answer_type),
+                _ => {
+                    return Err(DnsError::ResolveError(format!(
+                        "Unexpected answer type: {:?}",
+                        answer_type
+                    )))
+                }
             }
         } else if let Some(ns_ip) = response.get_nameserver_ip() {
             debug!("Got nameserver ip: {}", ns_ip);
             nameserver = ns_ip.to_string();
         } else if let Some(ns_domain) = response.get_nameserver() {
             debug!("Got nameserver domain: {}", ns_domain);
-            nameserver = resolve(ns_domain, Type::A);
+            nameserver = resolve(ns_domain, Type::A)?;
         } else {
-            panic!("Unexpected response: {:?}", response);
+            return Err(DnsError::ResolveError(format!(
+                "Unexpected response: {:?}",
+                response
+            )));
         }
     }
 }

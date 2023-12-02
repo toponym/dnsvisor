@@ -25,7 +25,7 @@ impl DnsRecord {
         let mut buf_32 = [0u8; 4];
         let name = decode_dns_name(reader);
         let rtype_raw = cursor_read_num!(reader, buf_16, u16::from_be_bytes);
-        let rtype = Type::from(rtype_raw);
+        let rtype = Type::try_from(rtype_raw).unwrap();
         let class = cursor_read_num!(reader, buf_16, u16::from_be_bytes);
         let ttl = cursor_read_num!(reader, buf_32, u32::from_be_bytes);
         let data = Self::data_from_bytes(reader, rtype);
