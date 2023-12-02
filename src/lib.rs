@@ -1,13 +1,13 @@
 use log::{debug, info};
 use rr_fields::Type;
-// TODO visibility
-pub mod header;
-pub mod packet;
-pub mod query;
-pub mod question;
-pub mod record;
+
+mod header;
+mod packet;
+mod query;
+mod question;
+mod record;
 pub mod rr_fields;
-pub mod util;
+mod util;
 
 pub fn resolve(req_domain_name: &str, record_type: Type) -> String {
     // Verisign root nameserver
