@@ -9,16 +9,17 @@ pub enum Type {
     AAAA = 28,
 }
 
-impl From<u16> for Type {
-    fn from(val: u16) -> Self {
+impl TryFrom<u16> for Type {
+    type Error = String;
+    fn try_from(val: u16) -> Result<Self, Self::Error> {
         match val {
-            1 => Type::A,
-            2 => Type::NS,
-            5 => Type::CNAME,
-            15 => Type::MX,
-            16 => Type::TXT,
-            28 => Type::AAAA,
-            _ => panic!("Integer {} does not correspond to a Type", val),
+            1 => Ok(Type::A),
+            2 => Ok(Type::NS),
+            5 => Ok(Type::CNAME),
+            15 => Ok(Type::MX),
+            16 => Ok(Type::TXT),
+            28 => Ok(Type::AAAA),
+            _ => Err(format!("Integer {} does not correspond to a Type", val)),
         }
     }
 }

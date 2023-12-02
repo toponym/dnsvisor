@@ -26,7 +26,7 @@ fn inner_decode_dns_name(reader: &mut Cursor<&[u8]>, visited: &mut HashSet<u64>)
     while length_buf[0] != 0 {
         let length = length_buf[0] as u64;
         if (length_buf[0] & 0b1100_0000) != 0 {
-            parts.push(decode_compressed_name(length, reader, visited));
+            parts.push(decode_compressed_name(length, reader, visited).unwrap());
             break;
         } else {
             let _ = reader.take(length).read(&mut part).unwrap();
@@ -42,19 +42,19 @@ fn decode_compressed_name(
     length: u64,
     reader: &mut Cursor<&[u8]>,
     visited: &mut HashSet<u64>,
-) -> String {
+) -> Result<String, &'static str> {
     let mut byte: [u8; 1] = [0; 1];
     reader.read_exact(&mut byte).unwrap();
     let pointer: u64 = (length & 0b0011_1111) + byte[0] as u64;
     if visited.contains(&pointer) {
-        panic!("Malformed DNS record: pointer loop detected");
+        return Err("Malformed DNS record: pointer loop detected");
     }
     visited.insert(pointer);
     let prev_position = reader.position();
     reader.set_position(pointer);
     let res = inner_decode_dns_name(reader, visited);
     reader.set_position(prev_position);
-    res
+    Ok(res)
 }
 
 #[cfg(test)]
