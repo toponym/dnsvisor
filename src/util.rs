@@ -1,6 +1,6 @@
+use std::collections::HashSet;
 use std::io::Cursor;
 use std::io::Read;
-use std::collections::HashSet;
 
 pub fn encode_dns_name(domain_name: &str) -> Vec<u8> {
     assert!(domain_name.is_ascii());
@@ -18,7 +18,7 @@ pub fn encode_dns_name(domain_name: &str) -> Vec<u8> {
 pub fn decode_dns_name(reader: &mut Cursor<&[u8]>) -> String {
     inner_decode_dns_name(reader, &mut HashSet::new())
 }
-fn inner_decode_dns_name(reader: &mut Cursor<&[u8]>, visited: &mut HashSet<u64>)-> String {
+fn inner_decode_dns_name(reader: &mut Cursor<&[u8]>, visited: &mut HashSet<u64>) -> String {
     let mut parts: Vec<String> = vec![];
     let mut part: [u8; 63] = [0; 63];
     let mut length_buf: [u8; 1] = [0; 1];
@@ -38,7 +38,11 @@ fn inner_decode_dns_name(reader: &mut Cursor<&[u8]>, visited: &mut HashSet<u64>)
     parts.join(".")
 }
 
-fn decode_compressed_name(length: u64, reader: &mut Cursor<&[u8]>, visited: &mut HashSet<u64>) -> String {
+fn decode_compressed_name(
+    length: u64,
+    reader: &mut Cursor<&[u8]>,
+    visited: &mut HashSet<u64>,
+) -> String {
     let mut byte: [u8; 1] = [0; 1];
     reader.read_exact(&mut byte).unwrap();
     let pointer: u64 = (length & 0b0011_1111) + byte[0] as u64;
@@ -51,4 +55,19 @@ fn decode_compressed_name(length: u64, reader: &mut Cursor<&[u8]>, visited: &mut
     let res = inner_decode_dns_name(reader, visited);
     reader.set_position(prev_position);
     res
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    #[test]
+    #[should_panic(expected = "Malformed DNS record: pointer loop detected")]
+    fn decode_detect_loop() {
+        // input has two compressed dns pointers which create a loop
+        let input = vec![0b1100_0010, 0b0000_0000, 0b1100_0000, 0b0000_0000];
+        let mut reader = Cursor::new(input.as_slice());
+        decode_dns_name(&mut reader);
+    }
 }
