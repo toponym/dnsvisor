@@ -1,3 +1,4 @@
+use crate::error::DnsError;
 use crate::rr_fields::{Class, Type};
 use crate::util;
 use serde::{Deserialize, Serialize};
@@ -26,14 +27,18 @@ impl DnsQuestion {
         bytes
     }
 
-    pub fn from_bytes(reader: &mut Cursor<&[u8]>) -> DnsQuestion {
+    pub fn from_bytes(reader: &mut Cursor<&[u8]>) -> Result<DnsQuestion, DnsError> {
         let mut bytes = [0u8, 2];
-        let name = util::decode_dns_name(reader);
-        reader.read_exact(&mut bytes).unwrap();
+        let name = util::decode_dns_name(reader)?;
+        reader
+            .read_exact(&mut bytes)
+            .map_err(|_| DnsError::DecodeError("Failed to decode DNS question"))?;
         let qtype = u16::from_be_bytes(bytes);
-        reader.read_exact(&mut bytes).unwrap();
+        reader
+            .read_exact(&mut bytes)
+            .map_err(|_| DnsError::DecodeError("Failed to decode DNS question"))?;
         let class = u16::from_be_bytes(bytes);
-        Self { name, qtype, class }
+        Ok(Self { name, qtype, class })
     }
 }
 
@@ -50,7 +55,7 @@ mod tests {
         let mut reader = Cursor::new(response_bytes.as_slice());
         let start_pos = 12;
         reader.set_position(start_pos);
-        let header = DnsQuestion::from_bytes(&mut reader);
+        let header = DnsQuestion::from_bytes(&mut reader).unwrap();
         let expected = DnsQuestion {
             name: String::from("www.example.com"),
             qtype: 1,

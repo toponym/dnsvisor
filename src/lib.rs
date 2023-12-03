@@ -1,6 +1,9 @@
+#![warn(clippy::unwrap_used, clippy::panic)]
+use error::DnsError;
 use log::{debug, info};
 use rr_fields::Type;
 
+pub mod error;
 mod header;
 mod packet;
 mod query;
@@ -9,11 +12,6 @@ mod record;
 pub mod rr_fields;
 mod util;
 
-#[derive(Debug)]
-pub enum DnsError {
-    ResolveError(String),
-}
-
 pub fn resolve(req_domain_name: &str, record_type: Type) -> Result<String, DnsError> {
     // Verisign root nameserver
     let root_nameserver = String::from("198.41.0.4");
@@ -21,7 +19,7 @@ pub fn resolve(req_domain_name: &str, record_type: Type) -> Result<String, DnsEr
     let mut domain_name = String::from(req_domain_name);
     loop {
         info!("Querying {} for {}", nameserver, domain_name);
-        let response = query::send_query(&nameserver, &domain_name, record_type);
+        let response = query::send_query(&nameserver, &domain_name, record_type)?;
         if let Some((answer_type, answer)) = response.get_answer() {
             match answer_type {
                 Type::A => {

@@ -1,3 +1,4 @@
+use crate::error::DnsError;
 use crate::header::DnsHeader;
 use crate::packet::DnsPacket;
 use crate::question::DnsQuestion;
@@ -6,7 +7,7 @@ use crate::rr_fields::{Class, Type};
 use rand::random;
 use std::net::UdpSocket;
 
-pub fn build_query(domain_name: &str, record_type: Type) -> Vec<u8> {
+pub fn build_query(domain_name: &str, record_type: Type) -> Result<Vec<u8>, DnsError> {
     let id: u16 = random();
     let no_recursion = 0;
     let header = DnsHeader {
@@ -18,18 +19,27 @@ pub fn build_query(domain_name: &str, record_type: Type) -> Vec<u8> {
         num_additionals: 0,
     };
     let question = DnsQuestion::new(domain_name, record_type, Class::CLASS_IN);
-    let mut query_bytes = header.to_bytes();
+    let mut query_bytes = header.to_bytes()?;
     query_bytes.append(&mut question.to_bytes());
-    query_bytes
+    Ok(query_bytes)
 }
 
-pub fn send_query(nameserver: &str, domain_name: &str, record_type: Type) -> DnsPacket {
+pub fn send_query(
+    nameserver: &str,
+    domain_name: &str,
+    record_type: Type,
+) -> Result<DnsPacket, DnsError> {
     // TODO different buf size?
     let mut buf: [u8; 1024] = [0; 1024];
-    let query = build_query(domain_name, record_type);
-    let socket = UdpSocket::bind("0.0.0.0:0").unwrap();
-    let _res = socket.send_to(&query, (nameserver, 53)).unwrap();
-    let (_num_bytes, _src_addr) = socket.recv_from(&mut buf).unwrap();
+    let query = build_query(domain_name, record_type)?;
+    let socket = UdpSocket::bind("0.0.0.0:0")
+        .map_err(|_| DnsError::NetworkError("Failed binding to socket"))?;
+    let _res = socket
+        .send_to(&query, (nameserver, 53))
+        .map_err(|_| DnsError::NetworkError("Failed sending query"))?;
+    let (_num_bytes, _src_addr) = socket
+        .recv_from(&mut buf)
+        .map_err(|_| DnsError::NetworkError("Failed receiving from socket"))?;
     DnsPacket::from_bytes(&buf)
 }
 
@@ -45,7 +55,7 @@ mod tests {
     fn query_example() {
         let expected =
             String::from("3c5f0000000100000000000003777777076578616d706c6503636f6d0000010001");
-        let res = build_query("www.example.com", Type::A);
+        let res = build_query("www.example.com", Type::A).unwrap();
         let res_hex = hex::encode(res);
         assert_eq!(res_hex[4..], expected[4..]);
     }

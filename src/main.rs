@@ -7,5 +7,8 @@ fn main() {
     let domain_name = &args[1];
     env_logger::builder().format_timestamp(None).init();
     println!("Looking up domain: {}", domain_name);
-    println!("Domain IP: {}", resolve(domain_name, Type::A).unwrap());
+    match resolve(domain_name, Type::A) {
+        Ok(ip) => println!("Domain IP: {}", ip),
+        Err(err) => println!("Resolver failed with error: {:?}", err),
+    }
 }
