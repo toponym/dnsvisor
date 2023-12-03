@@ -32,10 +32,7 @@ fn inner_decode_dns_name(
     while length_buf[0] != 0 {
         let length = length_buf[0] as u64;
         if (length_buf[0] & 0b1100_0000) != 0 {
-            parts.push(
-                decode_compressed_name(length, reader, visited)
-                    .map_err(|_| DnsError::DecodeError("Failed decoding DNS name"))?,
-            );
+            parts.push(decode_compressed_name(length, reader, visited)?);
             break;
         } else {
             let _ = reader
@@ -84,11 +81,14 @@ mod tests {
     use std::io::Cursor;
 
     #[test]
-    #[should_panic(expected = "Malformed DNS record: pointer loop detected")]
     fn decode_detect_loop() {
         // input has two compressed dns pointers which create a loop
         let input = vec![0b1100_0010, 0b0000_0000, 0b1100_0000, 0b0000_0000];
         let mut reader = Cursor::new(input.as_slice());
-        decode_dns_name(&mut reader);
+        let expected = Err(DnsError::DecodeError(
+            "Malformed DNS record: pointer loop detected",
+        ));
+        let res = decode_dns_name(&mut reader);
+        assert_eq!(expected, res)
     }
 }
