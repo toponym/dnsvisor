@@ -28,26 +28,26 @@ fn inner_decode_dns_name(
     let mut length_buf: [u8; 1] = [0; 1];
     reader
         .read_exact(&mut length_buf)
-        .map_err(|_| DnsError::DecodeError("Failed decoding DNS name"))?;
+        .map_err(|_| DnsError::DecodeError("Failed decoding DNS name: while reading length"))?;
     while length_buf[0] != 0 {
         let length = length_buf[0] as u64;
         if (length_buf[0] & 0b1100_0000) != 0 {
             parts.push(decode_compressed_name(length, reader, visited)?);
             break;
         } else {
-            let _ = reader
-                .take(length)
-                .read(&mut part)
-                .map_err(|_| DnsError::DecodeError("Failed decoding DNS name"))?;
+            let _ = reader.take(length).read(&mut part).map_err(|_| {
+                DnsError::DecodeError("Failed decoding DNS name: while reading name segment")
+            })?;
             parts.push(
-                String::from_utf8((part[0..(length as usize)]).to_vec())
-                    .map_err(|_| DnsError::DecodeError("Failed decoding DNS name"))?,
+                String::from_utf8((part[0..(length as usize)]).to_vec()).map_err(|_| {
+                    DnsError::DecodeError("Failed decoding DNS name: while decoding name segment")
+                })?,
             );
             part.iter_mut().for_each(|x| *x = 0);
         }
         reader
             .read_exact(&mut length_buf)
-            .map_err(|_| DnsError::DecodeError("Failed decoding DNS name"))?;
+            .map_err(|_| DnsError::DecodeError("Failed decoding DNS name: while reading length"))?;
     }
     Ok(parts.join("."))
 }
@@ -58,9 +58,9 @@ fn decode_compressed_name(
     visited: &mut HashSet<u64>,
 ) -> Result<String, DnsError> {
     let mut byte: [u8; 1] = [0; 1];
-    reader
-        .read_exact(&mut byte)
-        .map_err(|_| DnsError::DecodeError("Failed decoding DNS name"))?;
+    reader.read_exact(&mut byte).map_err(|_| {
+        DnsError::DecodeError("Failed decoding compressed DNS name: while reading pointer byte")
+    })?;
     let pointer: u64 = (length & 0b0011_1111) + byte[0] as u64;
     if visited.contains(&pointer) {
         return Err(DnsError::DecodeError(

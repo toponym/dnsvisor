@@ -4,13 +4,13 @@ use crate::util::decode_dns_name;
 use std::io::{Cursor, Read};
 use std::net::{Ipv4Addr, Ipv6Addr};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 #[allow(dead_code)]
 pub struct DnsRecord {
-    name: String,
+    pub name: String,
     pub rtype: Type,
-    class: u16,
-    ttl: u32,
+    pub class: u16,
+    pub ttl: u32,
     pub data: String,
 }
 macro_rules! cursor_read_num {
@@ -70,5 +70,49 @@ impl DnsRecord {
             Type::CNAME => decode_dns_name(reader),
             Type::MX | Type::TXT => todo!(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::rr_fields::Class;
+    use pretty_assertions::assert_eq;
+    #[test]
+    fn test_record_aaaa() {
+        let packet_hex = "a15e818000010001000000020377777706676f6f676c6503636f6d0000410001c00c00\
+        41000100001bb6000d00010000010006026832026833c00c000100010000005200048efa5024c00c001c0001000000\
+        5100102607f8b04006080d0000000000002004";
+        let packet_bytes = hex::decode(packet_hex).unwrap();
+        let mut reader = Cursor::new(packet_bytes.as_slice());
+        let record_position = 0x49;
+        reader.set_position(record_position);
+        let expected = Ok(DnsRecord {
+            name: "www.google.com".to_string(),
+            rtype: Type::AAAA,
+            class: Class::CLASS_IN as u16,
+            ttl: 81,
+            data: "2607:f8b0:4006:80d::2004".to_string(),
+        });
+        let record = DnsRecord::from_bytes(&mut reader);
+        assert_eq!(record, expected)
+    }
+    #[test]
+    fn test_record_cname() {
+        let packet_hex = "8bb58180000100020000000002616106676f6f676c6503636f6d0000010001c00c00\
+        0500010000009100090477777733016cc00fc02b000100010000004e00048efb286e";
+        let packet_bytes = hex::decode(packet_hex).unwrap();
+        let mut reader = Cursor::new(packet_bytes.as_slice());
+        let record_position = 0x1f;
+        reader.set_position(record_position);
+        let expected = Ok(DnsRecord {
+            name: "aa.google.com".to_string(),
+            rtype: Type::CNAME,
+            class: Class::CLASS_IN as u16,
+            ttl: 145,
+            data: "www3.l.google.com".to_string(),
+        });
+        let record = DnsRecord::from_bytes(&mut reader);
+        assert_eq!(record, expected)
     }
 }
