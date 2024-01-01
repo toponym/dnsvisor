@@ -1,4 +1,4 @@
-#![warn(clippy::unwrap_used, clippy::panic)]
+#![warn(clippy::unwrap_used, clippy::panic, clippy::print_stdout)]
 use error::DnsError;
 use log::{debug, info};
 use rr_fields::Type;

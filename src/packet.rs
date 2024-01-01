@@ -5,7 +5,7 @@ use crate::record::DnsRecord;
 use crate::rr_fields::Type;
 use std::io::Cursor;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 #[allow(dead_code)]
 pub struct DnsPacket {
     header: DnsHeader,
@@ -69,5 +69,70 @@ impl DnsPacket {
             }
         }
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::rr_fields::Class;
+    use pretty_assertions::assert_eq;
+    #[test]
+    fn test_dns_response_type_a() {
+        let packet = "528a818000010001000000000a636f6d706c6574696f6e06616d617a6f6e03636f\
+        6d0000010001c00c000100010000002500042cd78e8b";
+        let packet_bytes = hex::decode(packet).unwrap();
+        let expected = DnsPacket {
+            header: DnsHeader {
+                id: 0x528a,
+                flags: 0x8180,
+                num_questions: 1,
+                num_answers: 1,
+                num_authorities: 0,
+                num_additionals: 0,
+            },
+            authorities: vec![],
+            additionals: vec![],
+            questions: vec![DnsQuestion {
+                name: "completion.amazon.com".to_string(),
+                qtype: Type::A as u16,
+                class: Class::CLASS_IN as u16,
+            }],
+            answers: vec![DnsRecord {
+                name: "completion.amazon.com".to_string(),
+                rtype: Type::A,
+                class: Class::CLASS_IN as u16,
+                ttl: 37,
+                data: "44.215.142.139".to_string(),
+            }],
+        };
+        let decoded = DnsPacket::from_bytes(&packet_bytes);
+        assert_eq!(decoded, Ok(expected));
+    }
+    #[test]
+    fn test_get_answer() {
+        let packet = DnsPacket {
+            header: DnsHeader {
+                id: 0,
+                flags: 0,
+                num_questions: 0,
+                num_answers: 0,
+                num_authorities: 0,
+                num_additionals: 0,
+            },
+            authorities: vec![],
+            additionals: vec![],
+            questions: vec![],
+            answers: vec![DnsRecord {
+                name: "encrypted-tbn0.gstatic.com".to_string(),
+                rtype: Type::A,
+                class: Class::CLASS_IN as u16,
+                ttl: 96,
+                data: "142.251.40.174".to_string(),
+            }],
+        };
+        let result = packet.get_answer();
+        let expected = Some((Type::A, "142.251.40.174"));
+        assert_eq!(result, expected);
     }
 }
