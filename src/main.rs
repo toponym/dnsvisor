@@ -1,10 +1,11 @@
 use clap::Command;
-use dnsvisor::resolve;
+use dnsvisor::resolver::Resolver;
 use dnsvisor::rr_fields::Type;
 use std::io::{stdin, stdout, Write};
 use std::process::exit;
 
 fn interactive() {
+    let mut resolver = Resolver::new();
     loop {
         print!("Enter a domain> ");
         stdout().flush().unwrap_or_else(|_| {
@@ -25,7 +26,7 @@ fn interactive() {
         if domain_name.is_empty() {
             exit(0)
         }
-        match resolve(&domain_name, Type::A) {
+        match resolver.resolve(&domain_name, Type::A) {
             Ok(ip) => println!("Domain IP: {}", ip),
             Err(err) => println!("Resolver failed with error: {:?}", err),
         }

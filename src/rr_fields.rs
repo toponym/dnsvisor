@@ -1,4 +1,4 @@
-use crate::DnsError;
+use crate::error::DnsError;
 /// Enums with values for DNS Resource Record (RR) fields
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
 pub enum Type {
