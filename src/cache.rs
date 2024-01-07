@@ -35,6 +35,12 @@ impl DnsCache {
     }
 }
 
+impl Default for DnsCache {
+    fn default() -> Self {
+        DnsCache::new()
+    }
+}
+
 struct DnsCacheEntry {
     record: DnsRecord,
     expires: Instant,
