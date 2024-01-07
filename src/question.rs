@@ -6,23 +6,23 @@ use std::io::Read;
 #[derive(Debug, PartialEq, Hash, Eq)]
 pub struct DnsQuestion {
     pub name: String,
-    pub qtype: u16,
-    pub class: u16,
+    pub qtype: Type,
+    pub class: Class,
 }
 
 impl DnsQuestion {
     pub fn new(domain_name: &str, record_type: Type, class: Class) -> Self {
         Self {
             name: domain_name.to_string(),
-            qtype: record_type as u16,
-            class: class as u16,
+            qtype: record_type,
+            class,
         }
     }
 
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = util::encode_dns_name(&self.name);
-        bytes.extend_from_slice(&self.qtype.to_be_bytes());
-        bytes.extend_from_slice(&self.class.to_be_bytes());
+        bytes.extend_from_slice(&(self.qtype as u16).to_be_bytes());
+        bytes.extend_from_slice(&(self.class as u16).to_be_bytes());
         bytes
     }
 
@@ -32,11 +32,11 @@ impl DnsQuestion {
         reader
             .read_exact(&mut bytes)
             .map_err(|_| DnsError::DecodeError("Failed to decode DNS question"))?;
-        let qtype = u16::from_be_bytes(bytes);
+        let qtype = Type::try_from(u16::from_be_bytes(bytes))?;
         reader
             .read_exact(&mut bytes)
             .map_err(|_| DnsError::DecodeError("Failed to decode DNS question"))?;
-        let class = u16::from_be_bytes(bytes);
+        let class = Class::try_from(u16::from_be_bytes(bytes))?;
         Ok(Self { name, qtype, class })
     }
 }
@@ -57,8 +57,8 @@ mod tests {
         let header = DnsQuestion::from_bytes(&mut reader).unwrap();
         let expected = DnsQuestion {
             name: String::from("www.example.com"),
-            qtype: 1,
-            class: 1,
+            qtype: Type::A,
+            class: Class::CLASS_IN,
         };
         let expected_end_pos = 33;
         assert_eq!(header, expected);

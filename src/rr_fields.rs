@@ -1,5 +1,6 @@
+use crate::DnsError;
 /// Enums with values for DNS Resource Record (RR) fields
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
 pub enum Type {
     A = 1,
     NS = 2,
@@ -10,7 +11,7 @@ pub enum Type {
 }
 
 impl TryFrom<u16> for Type {
-    type Error = String;
+    type Error = DnsError;
     fn try_from(val: u16) -> Result<Self, Self::Error> {
         match val {
             1 => Ok(Type::A),
@@ -19,15 +20,26 @@ impl TryFrom<u16> for Type {
             15 => Ok(Type::MX),
             16 => Ok(Type::TXT),
             28 => Ok(Type::AAAA),
-            _ => Err(format!("Integer {} not converted to a RR Type", val)),
+            _ => Err(DnsError::DecodeError("Integer not converted to a RR Type")),
         }
     }
 }
 
 // allow non-camel case to match the DNS name for these values
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
 #[allow(non_camel_case_types)]
 pub enum Class {
     CLASS_IN = 1,
+}
+
+impl TryFrom<u16> for Class {
+    type Error = DnsError;
+    fn try_from(val: u16) -> Result<Self, Self::Error> {
+        match val {
+            1 => Ok(Class::CLASS_IN),
+            _ => Err(DnsError::DecodeError("Integer not converted to a RR Class")),
+        }
+    }
 }
 
 #[cfg(test)]
