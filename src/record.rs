@@ -1,10 +1,11 @@
 use crate::error::DnsError;
+use crate::question::DnsQuestion;
 use crate::rr_fields::Type;
 use crate::util::decode_dns_name;
 use std::io::{Cursor, Read};
 use std::net::{Ipv4Addr, Ipv6Addr};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 #[allow(dead_code)]
 pub struct DnsRecord {
     pub name: String,
@@ -69,6 +70,13 @@ impl DnsRecord {
             }
             Type::CNAME => decode_dns_name(reader),
             Type::MX | Type::TXT => todo!(),
+        }
+    }
+    pub fn get_question(&self) -> DnsQuestion {
+        DnsQuestion {
+            name: self.name.clone(),
+            qtype: self.rtype as u16,
+            class: self.class,
         }
     }
 }

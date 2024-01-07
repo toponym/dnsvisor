@@ -78,6 +78,7 @@ fn decode_compressed_name(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pretty_assertions::assert_eq;
     use std::io::Cursor;
 
     #[test]

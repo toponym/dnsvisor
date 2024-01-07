@@ -3,6 +3,7 @@ use error::DnsError;
 use log::{debug, info};
 use rr_fields::Type;
 
+mod cache;
 pub mod error;
 mod header;
 mod packet;

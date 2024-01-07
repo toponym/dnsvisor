@@ -4,4 +4,5 @@ pub enum DnsError {
     EncodeError(&'static str),
     DecodeError(&'static str),
     NetworkError(&'static str),
+    CacheError(&'static str),
 }
