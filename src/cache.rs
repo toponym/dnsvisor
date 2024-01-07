@@ -72,7 +72,7 @@ mod tests {
         let record = DnsRecord {
             name: String::from("placeholder"),
             rtype: Type::A,
-            class: Class::CLASS_IN as u16,
+            class: Class::CLASS_IN,
             ttl: ttl,
             data: String::from(""),
         };
@@ -88,7 +88,7 @@ mod tests {
         let record = DnsRecord {
             name: String::from("example.com"),
             rtype: Type::A,
-            class: Class::CLASS_IN as u16,
+            class: Class::CLASS_IN,
             ttl: ttl,
             data: String::from(""),
         };
@@ -105,8 +105,8 @@ mod tests {
         };
         let query = DnsQuestion {
             name: "example.com".to_string(),
-            qtype: Type::A as u16,
-            class: Class::CLASS_IN as u16,
+            qtype: Type::A,
+            class: Class::CLASS_IN,
         };
         let expected = None;
         assert_eq!(cache.lookup(query), expected);
@@ -119,7 +119,7 @@ mod tests {
         let record = DnsRecord {
             name: "example.com".to_string(),
             rtype: Type::A,
-            class: Class::CLASS_IN as u16,
+            class: Class::CLASS_IN,
             ttl: 5,
             data: "127.0.0.1".to_string(),
         };
@@ -137,7 +137,7 @@ mod tests {
         let record = DnsRecord {
             name: "example.com".to_string(),
             rtype: Type::A,
-            class: Class::CLASS_IN as u16,
+            class: Class::CLASS_IN,
             ttl: 0,
             data: "127.0.0.1".to_string(),
         };

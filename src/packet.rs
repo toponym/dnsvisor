@@ -95,13 +95,13 @@ mod tests {
             additionals: vec![],
             questions: vec![DnsQuestion {
                 name: "completion.amazon.com".to_string(),
-                qtype: Type::A as u16,
-                class: Class::CLASS_IN as u16,
+                qtype: Type::A,
+                class: Class::CLASS_IN,
             }],
             answers: vec![DnsRecord {
                 name: "completion.amazon.com".to_string(),
                 rtype: Type::A,
-                class: Class::CLASS_IN as u16,
+                class: Class::CLASS_IN,
                 ttl: 37,
                 data: "44.215.142.139".to_string(),
             }],
@@ -126,7 +126,7 @@ mod tests {
             answers: vec![DnsRecord {
                 name: "encrypted-tbn0.gstatic.com".to_string(),
                 rtype: Type::A,
-                class: Class::CLASS_IN as u16,
+                class: Class::CLASS_IN,
                 ttl: 96,
                 data: "142.251.40.174".to_string(),
             }],

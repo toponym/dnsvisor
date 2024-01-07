@@ -1,6 +1,6 @@
 use crate::error::DnsError;
 use crate::question::DnsQuestion;
-use crate::rr_fields::Type;
+use crate::rr_fields::{Class, Type};
 use crate::util::decode_dns_name;
 use std::io::{Cursor, Read};
 use std::net::{Ipv4Addr, Ipv6Addr};
@@ -10,7 +10,7 @@ use std::net::{Ipv4Addr, Ipv6Addr};
 pub struct DnsRecord {
     pub name: String,
     pub rtype: Type,
-    pub class: u16,
+    pub class: Class,
     pub ttl: u32,
     pub data: String,
 }
@@ -29,9 +29,9 @@ impl DnsRecord {
         let mut buf_32 = [0u8; 4];
         let name = decode_dns_name(reader)?;
         let rtype_raw = cursor_read_num!(reader, buf_16, u16::from_be_bytes);
-        let rtype = Type::try_from(rtype_raw)
-            .map_err(|_| DnsError::DecodeError("Failed decoding record type"))?;
-        let class = cursor_read_num!(reader, buf_16, u16::from_be_bytes);
+        let rtype = Type::try_from(rtype_raw)?;
+        let class_raw = cursor_read_num!(reader, buf_16, u16::from_be_bytes);
+        let class = Class::try_from(class_raw)?;
         let ttl = cursor_read_num!(reader, buf_32, u32::from_be_bytes);
         let data = Self::data_from_bytes(reader, rtype)?;
         Ok(Self {
@@ -75,7 +75,7 @@ impl DnsRecord {
     pub fn get_question(&self) -> DnsQuestion {
         DnsQuestion {
             name: self.name.clone(),
-            qtype: self.rtype as u16,
+            qtype: self.rtype,
             class: self.class,
         }
     }
@@ -98,7 +98,7 @@ mod tests {
         let expected = Ok(DnsRecord {
             name: "www.google.com".to_string(),
             rtype: Type::AAAA,
-            class: Class::CLASS_IN as u16,
+            class: Class::CLASS_IN,
             ttl: 81,
             data: "2607:f8b0:4006:80d::2004".to_string(),
         });
@@ -116,7 +116,7 @@ mod tests {
         let expected = Ok(DnsRecord {
             name: "aa.google.com".to_string(),
             rtype: Type::CNAME,
-            class: Class::CLASS_IN as u16,
+            class: Class::CLASS_IN,
             ttl: 145,
             data: "www3.l.google.com".to_string(),
         });
