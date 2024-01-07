@@ -1,3 +1,4 @@
+/// Resolve a single domain from the command line
 use dnsvisor::resolve;
 use dnsvisor::rr_fields::Type;
 use std::env;
@@ -9,6 +10,6 @@ fn main() {
     println!("Looking up domain: {}", domain_name);
     match resolve(domain_name, Type::A) {
         Ok(ip) => println!("Domain IP: {}", ip),
-        Err(err) => println!("Resolver failed with error: {:?}", err),
+        Err(err) => println!("Failed to resolve with error: {:?}", err),
     }
 }
