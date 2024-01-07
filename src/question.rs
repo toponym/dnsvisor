@@ -1,10 +1,9 @@
 use crate::error::DnsError;
 use crate::rr_fields::{Class, Type};
 use crate::util;
-use serde::{Deserialize, Serialize};
 use std::io::Cursor;
 use std::io::Read;
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Debug, PartialEq, Hash, Eq)]
 pub struct DnsQuestion {
     pub name: String,
     pub qtype: u16,
