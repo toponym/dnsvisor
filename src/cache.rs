@@ -1,6 +1,7 @@
 use crate::error::DnsError;
 use crate::question::DnsQuestion;
 use crate::record::DnsRecord;
+use log::debug;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
@@ -17,19 +18,20 @@ impl DnsCache {
         }
     }
 
-    pub fn lookup(&mut self, question: DnsQuestion) -> Option<&DnsRecord> {
+    pub fn lookup(&mut self, question: &DnsQuestion) -> Option<&DnsRecord> {
         // Delete cache entry if expired
-        if let Some(entry) = self.cache.get(&question) {
+        if let Some(entry) = self.cache.get(question) {
             if entry.expired() {
-                self.cache.remove(&question);
+                debug!("Expired cache entry");
+                self.cache.remove(question);
             }
         }
-        self.cache.get(&question).map(|x| &x.record)
+        self.cache.get(question).map(|x| &x.record)
     }
 
-    pub fn add(&mut self, record: DnsRecord) -> Result<(), DnsError> {
+    pub fn add(&mut self, record: &DnsRecord) -> Result<(), DnsError> {
         let question = record.get_question();
-        let entry = DnsCacheEntry::new(record)?;
+        let entry = DnsCacheEntry::new(record.clone())?;
         self.cache.insert(question, entry);
         Ok(())
     }
@@ -115,7 +117,7 @@ mod tests {
             class: Class::CLASS_IN,
         };
         let expected = None;
-        assert_eq!(cache.lookup(query), expected);
+        assert_eq!(cache.lookup(&query), expected);
     }
     #[test]
     fn cache_lookup_hit() {
@@ -130,9 +132,9 @@ mod tests {
             data: "127.0.0.1".to_string(),
         };
         let question = record.get_question();
-        cache.add(record.clone()).unwrap();
+        cache.add(&record).unwrap();
         let expected = Some(&record);
-        let result = cache.lookup(question);
+        let result = cache.lookup(&question);
         assert_eq!(result, expected);
     }
     #[test]
@@ -148,9 +150,9 @@ mod tests {
             data: "127.0.0.1".to_string(),
         };
         let question = record.get_question();
-        cache.add(record).unwrap();
+        cache.add(&record).unwrap();
         let expected = None;
-        let result = cache.lookup(question);
+        let result = cache.lookup(&question);
         assert_eq!(result, expected);
         assert!(cache.cache.is_empty())
     }

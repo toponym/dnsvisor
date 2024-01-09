@@ -26,7 +26,7 @@ fn interactive() {
         if domain_name.is_empty() {
             exit(0)
         }
-        match resolver.resolve(&domain_name, Type::A) {
+        match resolver.resolve(domain_name, Type::A) {
             Ok(ip) => println!("Domain IP: {}", ip),
             Err(err) => println!("Resolver failed with error: {:?}", err),
         }
@@ -34,6 +34,7 @@ fn interactive() {
 }
 
 fn main() {
+    env_logger::builder().format_timestamp(None).init();
     let cmd = Command::new("dnsvisor")
         .about("DNS resolver")
         .subcommand_required(true)
