@@ -1,7 +1,8 @@
 use crate::cache::DnsCache;
 use crate::error::DnsError;
 use crate::query;
-use crate::rr_fields::Type;
+use crate::question::DnsQuestion;
+use crate::rr_fields::{Class, Type};
 use log::{debug, info};
 
 pub struct Resolver {
@@ -14,6 +15,7 @@ impl Resolver {
             cache: DnsCache::new(),
         }
     }
+
     pub fn resolve(
         &mut self,
         req_domain_name: &str,
@@ -25,21 +27,33 @@ impl Resolver {
         let mut domain_name = String::from(req_domain_name);
         loop {
             info!("Querying {} for {}", nameserver, domain_name);
-            let response = query::send_query(&nameserver, &domain_name, record_type)?;
-            if let Some((answer_type, answer)) = response.get_answer() {
-                match answer_type {
+            let question = DnsQuestion::new(&domain_name, record_type, Class::CLASS_IN);
+            // check cach
+            if let Some(record) = self.cache.lookup(&question) {
+                debug!("Cache hit");
+                return Ok(record.data.clone());
+            }
+            debug!("Cache miss");
+            // otherwise ask remote resolver
+            let response = query::send_query(&nameserver, &question)?;
+            if let Some(answer) = response.get_answer() {
+                match answer.rtype {
                     Type::A => {
-                        debug!("Got ip: {}", answer);
-                        return Ok(answer.to_string());
+                        self.cache.add(answer)?;
+                        let answer_string = answer.data.to_string();
+                        debug!("Got ip: {}", answer_string);
+                        return Ok(answer_string);
                     }
                     Type::CNAME => {
-                        debug!("Got CNAME domain: {}", answer);
-                        domain_name = answer.to_string();
+                        self.cache.add(answer)?;
+                        let answer_string = answer.data.to_string();
+                        debug!("Got CNAME domain: {}", answer_string);
+                        domain_name = answer_string;
                     }
                     _ => {
                         return Err(DnsError::ResolveError(format!(
                             "Unexpected answer type: {:?}",
-                            answer_type
+                            answer.rtype
                         )))
                     }
                 }
@@ -48,7 +62,7 @@ impl Resolver {
                 nameserver = ns_ip.to_string();
             } else if let Some(ns_domain) = response.get_nameserver() {
                 debug!("Got nameserver domain: {}", ns_domain);
-                nameserver = self.resolve(ns_domain, Type::A)?;
+                nameserver = self.resolve(ns_domain, Type::A)?; // TODO is Type A right?
             } else {
                 return Err(DnsError::ResolveError(format!(
                     "Unexpected response: {:?}",

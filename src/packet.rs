@@ -43,11 +43,11 @@ impl DnsPacket {
         })
     }
 
-    pub fn get_answer(&self) -> Option<(Type, &str)> {
+    pub fn get_answer(&self) -> Option<&DnsRecord> {
         for answer in &self.answers {
             let answer_type = answer.rtype;
             if answer_type == Type::A || answer_type == Type::CNAME {
-                return Some((answer_type, &answer.data));
+                return Some(answer);
             }
         }
         None
@@ -111,6 +111,13 @@ mod tests {
     }
     #[test]
     fn test_get_answer() {
+        let record = DnsRecord {
+            name: "encrypted-tbn0.gstatic.com".to_string(),
+            rtype: Type::A,
+            class: Class::CLASS_IN,
+            ttl: 96,
+            data: "142.251.40.174".to_string(),
+        };
         let packet = DnsPacket {
             header: DnsHeader {
                 id: 0,
@@ -123,16 +130,11 @@ mod tests {
             authorities: vec![],
             additionals: vec![],
             questions: vec![],
-            answers: vec![DnsRecord {
-                name: "encrypted-tbn0.gstatic.com".to_string(),
-                rtype: Type::A,
-                class: Class::CLASS_IN,
-                ttl: 96,
-                data: "142.251.40.174".to_string(),
-            }],
+            answers: vec![record.clone()],
         };
+
         let result = packet.get_answer();
-        let expected = Some((Type::A, "142.251.40.174"));
+        let expected = Some(&record);
         assert_eq!(result, expected);
     }
 }
