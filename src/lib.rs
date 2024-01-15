@@ -3,8 +3,7 @@
 mod cache;
 pub mod error;
 mod header;
-mod packet;
-mod query;
+pub mod packet;
 mod question;
 mod record;
 pub mod resolver;

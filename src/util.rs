@@ -26,9 +26,9 @@ fn inner_decode_dns_name(
     let mut parts: Vec<String> = vec![];
     let mut part: [u8; 63] = [0; 63];
     let mut length_buf: [u8; 1] = [0; 1];
-    reader
-        .read_exact(&mut length_buf)
-        .map_err(|_| DnsError::DecodeError("Failed decoding DNS name: while reading length"))?;
+    reader.read_exact(&mut length_buf).map_err(|_| {
+        DnsError::DecodeError("Failed decoding DNS name: while reading length".to_string())
+    })?;
     while length_buf[0] != 0 {
         let length = length_buf[0] as u64;
         if (length_buf[0] & 0b1100_0000) != 0 {
@@ -36,18 +36,22 @@ fn inner_decode_dns_name(
             break;
         } else {
             let _ = reader.take(length).read(&mut part).map_err(|_| {
-                DnsError::DecodeError("Failed decoding DNS name: while reading name segment")
+                DnsError::DecodeError(
+                    "Failed decoding DNS name: while reading name segment".to_string(),
+                )
             })?;
             parts.push(
                 String::from_utf8((part[0..(length as usize)]).to_vec()).map_err(|_| {
-                    DnsError::DecodeError("Failed decoding DNS name: while decoding name segment")
+                    DnsError::DecodeError(
+                        "Failed decoding DNS name: while decoding name segment".to_string(),
+                    )
                 })?,
             );
             part.iter_mut().for_each(|x| *x = 0);
         }
-        reader
-            .read_exact(&mut length_buf)
-            .map_err(|_| DnsError::DecodeError("Failed decoding DNS name: while reading length"))?;
+        reader.read_exact(&mut length_buf).map_err(|_| {
+            DnsError::DecodeError("Failed decoding DNS name: while reading length".to_string())
+        })?;
     }
     Ok(parts.join("."))
 }
@@ -59,12 +63,14 @@ fn decode_compressed_name(
 ) -> Result<String, DnsError> {
     let mut byte: [u8; 1] = [0; 1];
     reader.read_exact(&mut byte).map_err(|_| {
-        DnsError::DecodeError("Failed decoding compressed DNS name: while reading pointer byte")
+        DnsError::DecodeError(
+            "Failed decoding compressed DNS name: while reading pointer byte".to_string(),
+        )
     })?;
     let pointer: u64 = (length & 0b0011_1111) + byte[0] as u64;
     if visited.contains(&pointer) {
         return Err(DnsError::DecodeError(
-            "Malformed DNS record: pointer loop detected",
+            "Malformed DNS record: pointer loop detected".to_string(),
         ));
     }
     visited.insert(pointer);
@@ -87,7 +93,7 @@ mod tests {
         let input = vec![0b1100_0010, 0b0000_0000, 0b1100_0000, 0b0000_0000];
         let mut reader = Cursor::new(input.as_slice());
         let expected = Err(DnsError::DecodeError(
-            "Malformed DNS record: pointer loop detected",
+            "Malformed DNS record: pointer loop detected".to_string(),
         ));
         let res = decode_dns_name(&mut reader);
         assert_eq!(expected, res)

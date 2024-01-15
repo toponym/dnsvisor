@@ -2,7 +2,7 @@
 pub enum DnsError {
     ResolveError(String),
     EncodeError(&'static str),
-    DecodeError(&'static str),
+    DecodeError(String),
     NetworkError(&'static str),
     CacheError(&'static str),
 }

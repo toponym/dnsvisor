@@ -27,13 +27,13 @@ impl DnsHeader {
         let mut buf: [u8; 12] = [0; 12];
         reader
             .read_exact(&mut buf)
-            .map_err(|_| DnsError::DecodeError("Failed to decode DNS header"))?;
+            .map_err(|_| DnsError::DecodeError("Failed to decode DNS header".to_string()))?;
         let options = bincode::DefaultOptions::new()
             .with_big_endian()
             .with_fixint_encoding();
         options
             .deserialize(&buf)
-            .map_err(|_| DnsError::DecodeError("Failed to decode DNS header"))
+            .map_err(|_| DnsError::DecodeError("Failed to decode DNS header".to_string()))
     }
 }
 
@@ -44,7 +44,7 @@ mod tests {
     use pretty_assertions::assert_eq;
     use std::io::Cursor;
     #[test]
-    fn header_sample_response() {
+    fn header_from_bytes_sample() {
         let response = "60568180000100010000000003777777076578616d706c6503636f6d0000010001c00c000100010000529b00045db8d822";
         let response_bytes = hex::decode(response).unwrap();
         let mut reader = Cursor::new(response_bytes.as_slice());
@@ -60,5 +60,20 @@ mod tests {
         let expected_end_pos = 12;
         assert_eq!(header, Ok(expected));
         assert_eq!(expected_end_pos, reader.position());
+    }
+    #[test]
+    fn header_to_bytes_sample() {
+        let header = DnsHeader {
+            id: 24662,
+            flags: 33152,
+            num_questions: 1,
+            num_answers: 1,
+            num_authorities: 0,
+            num_additionals: 0,
+        };
+        let expected_str = "605681800001000100000000";
+        let expected = hex::decode(expected_str).unwrap();
+        let result = header.to_bytes().unwrap();
+        assert_eq!(expected, result);
     }
 }

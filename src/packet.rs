@@ -3,16 +3,19 @@ use crate::header::DnsHeader;
 use crate::question::DnsQuestion;
 use crate::record::DnsRecord;
 use crate::rr_fields::Type;
+use rand::random;
 use std::io::Cursor;
+use std::net::UdpSocket;
+use std::vec;
 
 #[derive(Debug, PartialEq)]
 #[allow(dead_code)]
 pub struct DnsPacket {
-    header: DnsHeader,
-    questions: Vec<DnsQuestion>,
+    pub header: DnsHeader,
+    pub questions: Vec<DnsQuestion>,
     pub answers: Vec<DnsRecord>,
-    authorities: Vec<DnsRecord>,
-    additionals: Vec<DnsRecord>,
+    pub authorities: Vec<DnsRecord>,
+    pub additionals: Vec<DnsRecord>,
 }
 
 macro_rules! parse_num_items {
@@ -43,6 +46,23 @@ impl DnsPacket {
         })
     }
 
+    pub fn to_bytes(self) -> Result<Vec<u8>, DnsError> {
+        let mut bytes = self.header.to_bytes()?;
+        for question in self.questions {
+            bytes.append(&mut question.to_bytes());
+        }
+        for answer in self.answers {
+            bytes.append(&mut answer.to_bytes()?);
+        }
+        for authority in self.authorities {
+            bytes.append(&mut authority.to_bytes()?);
+        }
+        for additional in self.additionals {
+            bytes.append(&mut additional.to_bytes()?)
+        }
+        Ok(bytes)
+    }
+
     pub fn get_answer(&self) -> Option<&DnsRecord> {
         for answer in &self.answers {
             let answer_type = answer.rtype;
@@ -70,13 +90,68 @@ impl DnsPacket {
         }
         None
     }
+
+    pub fn packet_from_question(question: DnsQuestion) -> DnsPacket {
+        let id: u16 = random();
+        let no_recursion = 0;
+        let header = DnsHeader {
+            id,
+            flags: no_recursion,
+            num_questions: 1,
+            num_answers: 0,
+            num_authorities: 0,
+            num_additionals: 0,
+        };
+        DnsPacket {
+            header,
+            questions: vec![question],
+            answers: vec![],
+            authorities: vec![],
+            additionals: vec![],
+        }
+    }
+
+    pub fn build_query(question: &DnsQuestion) -> Result<Vec<u8>, DnsError> {
+        let id: u16 = random();
+        let no_recursion = 0;
+        let header = DnsHeader {
+            id,
+            flags: no_recursion,
+            num_questions: 1,
+            num_answers: 0,
+            num_authorities: 0,
+            num_additionals: 0,
+        };
+        let mut query_bytes = header.to_bytes()?;
+        query_bytes.append(&mut question.to_bytes());
+        Ok(query_bytes)
+    }
+
+    pub fn send_query(nameserver: &str, question: &DnsQuestion) -> Result<DnsPacket, DnsError> {
+        // TODO different buf size?
+        let mut buf: [u8; 1024] = [0; 1024];
+        let query = Self::build_query(question)?;
+        let socket = UdpSocket::bind("0.0.0.0:0")
+            .map_err(|_| DnsError::NetworkError("Failed binding to socket"))?;
+        let _res = socket
+            .send_to(&query, (nameserver, 53))
+            .map_err(|_| DnsError::NetworkError("Failed sending query"))?;
+        let (_num_bytes, _src_addr) = socket
+            .recv_from(&mut buf)
+            .map_err(|_| DnsError::NetworkError("Failed receiving from socket"))?;
+        DnsPacket::from_bytes(&buf)
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::rr_fields::Class;
+    use crate::rr_fields::Type;
+    use crate::util::encode_dns_name;
+    use hex;
     use pretty_assertions::assert_eq;
+
     #[test]
     fn test_dns_response_type_a() {
         let packet = "528a818000010001000000000a636f6d706c6574696f6e06616d617a6f6e03636f\
@@ -110,6 +185,38 @@ mod tests {
         assert_eq!(decoded, Ok(expected));
     }
     #[test]
+    fn test_dns_to_bytes_a() {
+        let expected_str = "528a818000010001000000000a636f6d706c6574696f6e06616d617a6f6e03636f\
+        6d00000100010a636f6d706c6574696f6e06616d617a6f6e03636f6d00000100010000002500042cd78e8b";
+        let expected = hex::decode(expected_str).unwrap();
+        let packet = DnsPacket {
+            header: DnsHeader {
+                id: 0x528a,
+                flags: 0x8180,
+                num_questions: 1,
+                num_answers: 1,
+                num_authorities: 0,
+                num_additionals: 0,
+            },
+            authorities: vec![],
+            additionals: vec![],
+            questions: vec![DnsQuestion {
+                name: "completion.amazon.com".to_string(),
+                qtype: Type::A,
+                class: Class::CLASS_IN,
+            }],
+            answers: vec![DnsRecord {
+                name: "completion.amazon.com".to_string(),
+                rtype: Type::A,
+                class: Class::CLASS_IN,
+                ttl: 37,
+                data: "44.215.142.139".to_string(),
+            }],
+        };
+        let result: Vec<u8> = packet.to_bytes().unwrap();
+        assert_eq!(result, expected);
+    }
+    #[test]
     fn test_get_answer() {
         let record = DnsRecord {
             name: "encrypted-tbn0.gstatic.com".to_string(),
@@ -136,5 +243,25 @@ mod tests {
         let result = packet.get_answer();
         let expected = Some(&record);
         assert_eq!(result, expected);
+    }
+    #[test]
+    fn query_example() {
+        let expected =
+            String::from("3c5f0000000100000000000003777777076578616d706c6503636f6d0000010001");
+        let question = DnsQuestion {
+            name: "www.example.com".to_string(),
+            qtype: Type::A,
+            class: Class::CLASS_IN,
+        };
+        let res = DnsPacket::build_query(&question).unwrap();
+        let res_hex = hex::encode(res);
+        assert_eq!(res_hex[4..], expected[4..]);
+    }
+    #[test]
+    fn test_encode_dns_name() {
+        let expected = String::from("03777777076578616d706c6503636f6d00");
+        let res = encode_dns_name("www.example.com");
+        let res_hex = hex::encode(res);
+        assert_eq!(res_hex, expected);
     }
 }
