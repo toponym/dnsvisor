@@ -28,7 +28,7 @@ impl Resolver {
         loop {
             info!("Querying {} for {}", nameserver, domain_name);
             let question = DnsQuestion::new(&domain_name, record_type, Class::CLASS_IN);
-            // check cach
+            // check cache
             if let Some(record) = self.cache.lookup(&question) {
                 debug!("Cache hit");
                 return Ok(record.data.clone());
@@ -36,16 +36,15 @@ impl Resolver {
             debug!("Cache miss");
             // otherwise ask remote resolver
             let response = query::send_query(&nameserver, &question)?;
+            self.cache.cache_answers(&response)?;
             if let Some(answer) = response.get_answer() {
                 match answer.rtype {
                     Type::A => {
-                        self.cache.add(answer)?;
                         let answer_string = answer.data.to_string();
                         debug!("Got ip: {}", answer_string);
                         return Ok(answer_string);
                     }
                     Type::CNAME => {
-                        self.cache.add(answer)?;
                         let answer_string = answer.data.to_string();
                         debug!("Got CNAME domain: {}", answer_string);
                         domain_name = answer_string;

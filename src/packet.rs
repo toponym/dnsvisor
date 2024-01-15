@@ -10,7 +10,7 @@ use std::io::Cursor;
 pub struct DnsPacket {
     header: DnsHeader,
     questions: Vec<DnsQuestion>,
-    answers: Vec<DnsRecord>,
+    pub answers: Vec<DnsRecord>,
     authorities: Vec<DnsRecord>,
     additionals: Vec<DnsRecord>,
 }
