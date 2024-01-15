@@ -20,7 +20,10 @@ impl TryFrom<u16> for Type {
             15 => Ok(Type::MX),
             16 => Ok(Type::TXT),
             28 => Ok(Type::AAAA),
-            _ => Err(DnsError::DecodeError("Integer not converted to a RR Type")),
+            _ => Err(DnsError::DecodeError(format!(
+                "Integer not converted to a RR Type: {}",
+                val
+            ))),
         }
     }
 }
@@ -37,7 +40,9 @@ impl TryFrom<u16> for Class {
     fn try_from(val: u16) -> Result<Self, Self::Error> {
         match val {
             1 => Ok(Class::CLASS_IN),
-            _ => Err(DnsError::DecodeError("Integer not converted to a RR Class")),
+            _ => Err(DnsError::DecodeError(format!(
+                "Integer not converted to a RR Class: {val}"
+            ))),
         }
     }
 }
