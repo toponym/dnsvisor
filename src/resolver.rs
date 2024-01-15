@@ -18,22 +18,29 @@ impl Resolver {
         }
     }
 
-    fn build_response(header: &DnsHeader, question: &DnsQuestion, record: &DnsRecord) -> DnsPacket {
+    fn build_response(
+        header: &DnsHeader,
+        question: &DnsQuestion,
+        answers: Vec<DnsRecord>,
+    ) -> Result<DnsPacket, DnsError> {
+        let num_answers = u16::try_from(answers.len()).map_err(|_| {
+            DnsError::ResolveError("Number of answers exceeds u16 limit".to_string())
+        })?;
         let response_header = DnsHeader {
             id: header.id,
             flags: header.flags, // TODO custom flags?
             num_questions: 1,
-            num_answers: 1,
+            num_answers,
             num_authorities: 0,
             num_additionals: 0,
         };
-        DnsPacket {
+        Ok(DnsPacket {
             header: response_header,
             questions: vec![question.clone()],
-            answers: vec![record.clone()],
+            answers,
             authorities: vec![],
             additionals: vec![],
-        }
+        })
     }
 
     pub fn resolve_packet(&mut self, query_packet: DnsPacket) -> Result<DnsPacket, DnsError> {
@@ -41,20 +48,22 @@ impl Resolver {
         let root_nameserver = String::from("198.41.0.4");
         let mut nameserver = root_nameserver;
         // Assuming there is only 1 question as RFC 1035 says this is typical.
-        let question = query_packet.questions.get(0).ok_or_else(|| {
+        let orig_question = query_packet.questions.get(0).ok_or_else(|| {
             DnsError::ResolveError("Invalid request: no question supplied".to_string())
         })?;
         let header = &query_packet.header;
-        let mut domain_name = question.name.clone();
-        let record_type = question.qtype;
+        let mut domain_name = orig_question.name.clone();
+        let record_type = orig_question.qtype;
+        let mut answers: Vec<DnsRecord> = vec![];
         loop {
             info!("Querying {} for {}", nameserver, domain_name);
             let question = DnsQuestion::new(&domain_name, record_type, Class::CLASS_IN);
             // check cache
             if let Some(record) = self.cache.lookup(&question) {
                 debug!("Cache hit");
-                let response = Self::build_response(header, &question, record);
-                return Ok(response);
+                answers.push(record.clone());
+                let response = Self::build_response(header, orig_question, answers);
+                return response;
             }
             debug!("Cache miss");
             // otherwise ask remote resolver
@@ -65,12 +74,14 @@ impl Resolver {
                     Type::A => {
                         let answer_string = answer.data.to_string();
                         debug!("Got ip: {}", answer_string);
-                        let response = Self::build_response(header, &question, answer);
-                        return Ok(response);
+                        answers.push(answer.clone());
+                        let response = Self::build_response(header, orig_question, answers);
+                        return response;
                     }
                     Type::CNAME => {
                         let answer_string = answer.data.to_string();
                         debug!("Got CNAME domain: {}", answer_string);
+                        answers.push(answer.clone());
                         domain_name = answer_string;
                     }
                     _ => {
