@@ -1,6 +1,8 @@
 use crate::error::DnsError;
+use crate::packet::DnsPacket;
 use crate::question::DnsQuestion;
 use crate::record::DnsRecord;
+use crate::rr_fields::Type;
 use log::debug;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
@@ -34,6 +36,21 @@ impl DnsCache {
         let entry = DnsCacheEntry::new(record.clone())?;
         self.cache.insert(question, entry);
         Ok(())
+    }
+    pub fn cache_answers(&mut self, packet: &DnsPacket) -> Result<(), DnsError> {
+        for answer in &packet.answers {
+            if Self::should_cache(answer) {
+                self.add(answer)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn should_cache(record: &DnsRecord) -> bool {
+        matches!(
+            record.rtype,
+            Type::A | Type::NS | Type::CNAME | Type::MX | Type::AAAA
+        )
     }
 }
 
