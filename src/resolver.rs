@@ -48,7 +48,7 @@ impl Resolver {
         let root_nameserver = String::from("198.41.0.4");
         let mut nameserver = root_nameserver;
         // Assuming there is only 1 question as RFC 1035 says this is typical.
-        let orig_question = query_packet.questions.get(0).ok_or_else(|| {
+        let orig_question = query_packet.questions.first().ok_or_else(|| {
             DnsError::ResolveError("Invalid request: no question supplied".to_string())
         })?;
         let header = &query_packet.header;
