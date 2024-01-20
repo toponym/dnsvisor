@@ -1,9 +1,8 @@
+use crate::cursor_read_num;
 use crate::error::DnsError;
-use bincode::Options;
-use serde::{Deserialize, Serialize};
 use std::io::Cursor;
 use std::io::Read;
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct DnsHeader {
     pub id: u16,
     pub flags: u16,
@@ -15,25 +14,26 @@ pub struct DnsHeader {
 
 impl DnsHeader {
     pub fn to_bytes(&self) -> Result<Vec<u8>, DnsError> {
-        let options = bincode::DefaultOptions::new()
-            .with_big_endian()
-            .with_fixint_encoding();
-        options
-            .serialize(self)
-            .map_err(|_| DnsError::EncodeError("Failed to encode DNS header"))
+        let mut bytes = vec![];
+        bytes.extend(self.id.to_be_bytes());
+        bytes.extend(self.flags.to_be_bytes());
+        bytes.extend(self.num_questions.to_be_bytes());
+        bytes.extend(self.num_answers.to_be_bytes());
+        bytes.extend(self.num_authorities.to_be_bytes());
+        bytes.extend(self.num_additionals.to_be_bytes());
+        Ok(bytes)
     }
 
     pub fn from_bytes(reader: &mut Cursor<&[u8]>) -> Result<Self, DnsError> {
-        let mut buf: [u8; 12] = [0; 12];
-        reader
-            .read_exact(&mut buf)
-            .map_err(|_| DnsError::DecodeError("Failed to decode DNS header".to_string()))?;
-        let options = bincode::DefaultOptions::new()
-            .with_big_endian()
-            .with_fixint_encoding();
-        options
-            .deserialize(&buf)
-            .map_err(|_| DnsError::DecodeError("Failed to decode DNS header".to_string()))
+        let mut buf_16 = [0u8; 2];
+        Ok(Self {
+            id: cursor_read_num!(reader, buf_16, u16::from_be_bytes),
+            flags: cursor_read_num!(reader, buf_16, u16::from_be_bytes),
+            num_questions: cursor_read_num!(reader, buf_16, u16::from_be_bytes),
+            num_answers: cursor_read_num!(reader, buf_16, u16::from_be_bytes),
+            num_authorities: cursor_read_num!(reader, buf_16, u16::from_be_bytes),
+            num_additionals: cursor_read_num!(reader, buf_16, u16::from_be_bytes),
+        })
     }
 }
 

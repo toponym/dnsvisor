@@ -81,6 +81,16 @@ fn decode_compressed_name(
     res
 }
 
+#[macro_export]
+macro_rules! cursor_read_num {
+    ($reader: expr, $buf: expr, $num_parser: path) => {{
+        $reader.read_exact(&mut $buf).map_err(|_| {
+            DnsError::DecodeError("Failed to read exact bytes from cursor".to_string())
+        })?;
+        $num_parser($buf)
+    }};
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
