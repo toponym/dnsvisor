@@ -1,8 +1,9 @@
+#![warn(clippy::unwrap_used, clippy::panic)]
 use clap::{Arg, Command};
 use dnsvisor::packet::DnsPacket;
 use dnsvisor::resolver::Resolver;
 use dnsvisor::rr_fields::Type;
-use log::debug;
+use log::{debug, error, warn};
 use std::io::{stdin, stdout, Write};
 use std::net::{IpAddr, SocketAddr, UdpSocket};
 use std::process::exit;
@@ -40,18 +41,30 @@ fn server(ip: &IpAddr, port: &u16) {
     // TODO remove unwrap and send error packet to client on error
     let mut resolver = Resolver::new();
     let addr = SocketAddr::from((*ip, *port));
-    let socket = UdpSocket::bind(addr).unwrap();
+    let socket = UdpSocket::bind(addr).unwrap_or_else(|_| {
+        eprintln!("Failed to bind to socket");
+        exit(1);
+    });
     debug!("Server listening on {:?}", socket);
     loop {
         // Per RFC 1035 the max size for UDP messages is 512 bytes
         let mut buf = [0u8; 512];
-        let (_n_bytes, src_addr) = socket.recv_from(&mut buf).unwrap();
+        let (_n_bytes, src_addr) = match socket.recv_from(&mut buf) {
+            Ok((n_bytes, src_addr)) => (n_bytes, src_addr),
+            Err(_) => {
+                error!("Failed to receive request from socket");
+                continue;
+            }
+        };
         debug!("Received request from {:?}", src_addr);
         let query_packet = DnsPacket::from_bytes(&buf[..]).unwrap();
         let response_packet = resolver.resolve_packet(query_packet).unwrap();
         let response_bytes = response_packet.to_bytes().unwrap();
         debug!("Sending response to {:?}", src_addr);
-        socket.send_to(&response_bytes, src_addr).unwrap();
+        match socket.send_to(&response_bytes, src_addr) {
+            Ok(_) => (),
+            Err(_) => error!("Failed to send response"),
+        };
     }
 }
 
