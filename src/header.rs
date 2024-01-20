@@ -2,7 +2,7 @@ use crate::cursor_read_num;
 use crate::error::DnsError;
 use std::io::Cursor;
 use std::io::Read;
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct DnsHeader {
     pub id: u16,
     pub flags: u16,

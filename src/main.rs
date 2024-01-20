@@ -38,7 +38,6 @@ fn interactive() {
 }
 
 fn server(ip: &IpAddr, port: &u16) {
-    // TODO remove unwrap and send error packet to client on error
     let mut resolver = Resolver::new();
     let addr = SocketAddr::from((*ip, *port));
     let socket = UdpSocket::bind(addr).unwrap_or_else(|_| {
@@ -57,14 +56,38 @@ fn server(ip: &IpAddr, port: &u16) {
             }
         };
         debug!("Received request from {:?}", src_addr);
-        let query_packet = DnsPacket::from_bytes(&buf[..]).unwrap();
-        let response_packet = resolver.resolve_packet(query_packet).unwrap();
-        let response_bytes = response_packet.to_bytes().unwrap();
-        debug!("Sending response to {:?}", src_addr);
-        match socket.send_to(&response_bytes, src_addr) {
-            Ok(_) => (),
-            Err(_) => error!("Failed to send response"),
-        };
+        match DnsPacket::from_bytes(&buf[..]) {
+            Ok(query_packet) => match resolver.resolve_packet(query_packet.clone()) {
+                Ok(response_packet) => send_response(response_packet, &src_addr, &socket),
+                Err(err) => {
+                    error!(
+                        "Resolver failed with error {:?}. Sending error response.",
+                        err
+                    );
+                    let err_packet = query_packet.make_err_response(err);
+                    send_response(err_packet, &src_addr, &socket)
+                }
+            },
+            Err(err) => error!(
+                "Failed to decode request packet with error {:?}. Skipping.",
+                err
+            ),
+        }
+    }
+}
+
+fn send_response(packet: DnsPacket, src_addr: &SocketAddr, socket: &UdpSocket) {
+    debug!("Sending response to {:?}", src_addr);
+    match packet.to_bytes() {
+        Ok(bytes) => {
+            if let Err(err) = socket.send_to(&bytes, src_addr) {
+                error!("Failed to send response with error: {:?}. Skipping.", err)
+            }
+        }
+        Err(err) => error!(
+            "Failed to encode the response with error: {:?}. Skipping.",
+            err
+        ),
     }
 }
 

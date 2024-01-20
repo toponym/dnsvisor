@@ -2,13 +2,13 @@ use crate::error::DnsError;
 use crate::header::DnsHeader;
 use crate::question::DnsQuestion;
 use crate::record::DnsRecord;
-use crate::rr_fields::Type;
+use crate::rr_fields::{HeaderFlags, Type};
 use rand::random;
 use std::io::Cursor;
 use std::net::UdpSocket;
 use std::vec;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 #[allow(dead_code)]
 pub struct DnsPacket {
     pub header: DnsHeader,
@@ -140,6 +140,27 @@ impl DnsPacket {
             .recv_from(&mut buf)
             .map_err(|_| DnsError::NetworkError("Failed receiving from socket"))?;
         DnsPacket::from_bytes(&buf)
+    }
+
+    pub fn make_err_response(self, err: DnsError) -> DnsPacket {
+        let error_rcode = match err {
+            DnsError::NotImplementedError(_) => HeaderFlags::RCODE_NOT_IMPL,
+            DnsError::CacheError(_)
+            | DnsError::ResolveError(_)
+            | DnsError::EncodeError(_)
+            | DnsError::NetworkError(_)
+            | DnsError::DecodeError(_) => HeaderFlags::RCODE_SERVER_ERR,
+        };
+        let mut header = self.header;
+        header.flags |= HeaderFlags::QR_RESPONSE as u16;
+        header.flags |= error_rcode as u16;
+        DnsPacket {
+            header,
+            questions: self.questions,
+            answers: vec![],
+            authorities: vec![],
+            additionals: vec![],
+        }
     }
 }
 

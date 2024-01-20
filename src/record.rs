@@ -76,7 +76,7 @@ impl DnsRecord {
                 Ok(addr.to_string())
             }
             Type::CNAME => decode_dns_name(reader),
-            Type::MX | Type::TXT => Err(DnsError::NotImplementedError(format!(
+            _ => Err(DnsError::NotImplementedError(format!(
                 "Decoding data for type {:?} not supported yet",
                 rtype
             ))),
@@ -99,7 +99,7 @@ impl DnsRecord {
                 Ok(u128::from(addr).to_be_bytes().to_vec())
             }
             Type::CNAME => Ok(encode_dns_name(&self.data)),
-            Type::MX | Type::TXT => Err(DnsError::NotImplementedError(format!(
+            _ => Err(DnsError::NotImplementedError(format!(
                 "Encoding data for type {:?} not supported yet",
                 self.rtype
             ))),
