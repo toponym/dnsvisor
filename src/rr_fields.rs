@@ -47,6 +47,19 @@ impl TryFrom<u16> for Class {
     }
 }
 
+#[allow(non_camel_case_types)]
+enum HeaderFlags {
+    QR_RESPONSE = 0b0000_0000_0000_0001, // Query on 0, Response on 1
+    AA = 0b0000_0000_0001_0000,          // Authoritative Answer
+    TC = 0b0000_0000_0010_0000,          // Truncation
+    RD = 0b0000_0000_0100_0000,          // Recursion Desired
+    RA = 0b0000_0000_1000_0000,          // Recursion Available
+    RCODE_FORMAT_ERR = 0b0001_0000_0000_0000, // Failed to interpret format
+    RCODE_SERVER_ERR = 0b0010_0000_0000_0000, // Server failure
+    RCODE_NOT_IMPL = 0b0100_0000_0000_0000, // Not Implemented
+    RCODE_REFUSED = 0b0101_0000_0000_0000, // Refused
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

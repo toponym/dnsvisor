@@ -5,4 +5,5 @@ pub enum DnsError {
     DecodeError(String),
     NetworkError(&'static str),
     CacheError(&'static str),
+    NotImplementedError(String),
 }

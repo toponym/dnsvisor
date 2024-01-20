@@ -93,10 +93,10 @@ impl DnsPacket {
 
     pub fn packet_from_question(question: DnsQuestion) -> DnsPacket {
         let id: u16 = random();
-        let no_recursion = 0;
+        let no_flags = 0;
         let header = DnsHeader {
             id,
-            flags: no_recursion,
+            flags: no_flags,
             num_questions: 1,
             num_answers: 0,
             num_authorities: 0,
