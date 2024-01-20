@@ -1,3 +1,4 @@
+use crate::cursor_read_num;
 use crate::error::DnsError;
 use crate::question::DnsQuestion;
 use crate::rr_fields::{Class, Type};
@@ -13,14 +14,6 @@ pub struct DnsRecord {
     pub class: Class,
     pub ttl: u32,
     pub data: String,
-}
-macro_rules! cursor_read_num {
-    ($reader: expr, $buf: expr, $num_parser: path) => {{
-        $reader.read_exact(&mut $buf).map_err(|_| {
-            DnsError::DecodeError("Failed to read exact bytes from cursor".to_string())
-        })?;
-        $num_parser($buf)
-    }};
 }
 
 impl DnsRecord {
