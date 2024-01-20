@@ -5,6 +5,11 @@ pub enum Type {
     A = 1,
     NS = 2,
     CNAME = 5,
+    SOA = 6,
+    WKS = 11,
+    PTR = 12,
+    HINFO = 13,
+    MINFO = 14,
     MX = 15,
     TXT = 16,
     AAAA = 28,
@@ -17,6 +22,11 @@ impl TryFrom<u16> for Type {
             1 => Ok(Type::A),
             2 => Ok(Type::NS),
             5 => Ok(Type::CNAME),
+            6 => Ok(Type::SOA),
+            11 => Ok(Type::WKS),
+            12 => Ok(Type::PTR),
+            13 => Ok(Type::HINFO),
+            14 => Ok(Type::MINFO),
             15 => Ok(Type::MX),
             16 => Ok(Type::TXT),
             28 => Ok(Type::AAAA),
@@ -47,17 +57,14 @@ impl TryFrom<u16> for Class {
     }
 }
 
+// TODO use a bitfield/bitmask library
 #[allow(non_camel_case_types)]
-enum HeaderFlags {
-    QR_RESPONSE = 0b0000_0000_0000_0001, // Query on 0, Response on 1
-    AA = 0b0000_0000_0001_0000,          // Authoritative Answer
-    TC = 0b0000_0000_0010_0000,          // Truncation
-    RD = 0b0000_0000_0100_0000,          // Recursion Desired
-    RA = 0b0000_0000_1000_0000,          // Recursion Available
-    RCODE_FORMAT_ERR = 0b0001_0000_0000_0000, // Failed to interpret format
-    RCODE_SERVER_ERR = 0b0010_0000_0000_0000, // Server failure
-    RCODE_NOT_IMPL = 0b0100_0000_0000_0000, // Not Implemented
-    RCODE_REFUSED = 0b0101_0000_0000_0000, // Refused
+pub enum HeaderFlags {
+    QR_RESPONSE = 0x8000,      // Query on 0, Response on 1
+    RCODE_FORMAT_ERR = 0x0001, // Failed to interpret format
+    RCODE_SERVER_ERR = 0x0002, // Server failure
+    RCODE_NOT_IMPL = 0x0004,   // Not Implemented
+    RCODE_REFUSED = 0x0005,    // Refused
 }
 
 #[cfg(test)]
