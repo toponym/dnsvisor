@@ -4,7 +4,7 @@ use crate::header::DnsHeader;
 use crate::packet::DnsPacket;
 use crate::question::DnsQuestion;
 use crate::record::DnsRecord;
-use crate::rr_fields::{Class, Type};
+use crate::rr_fields::{Class, HeaderFlags, Type};
 use log::{debug, info};
 
 pub struct Resolver {
@@ -19,13 +19,14 @@ impl Resolver {
     }
 
     fn build_response(
-        header: &DnsHeader,
+        mut header: DnsHeader,
         question: &DnsQuestion,
         answers: Vec<DnsRecord>,
     ) -> Result<DnsPacket, DnsError> {
         let num_answers = u16::try_from(answers.len()).map_err(|_| {
             DnsError::ResolveError("Number of answers exceeds u16 limit".to_string())
         })?;
+        header.flags |= HeaderFlags::QR_RESPONSE as u16;
         let response_header = DnsHeader {
             id: header.id,
             flags: header.flags, // TODO custom flags?
@@ -51,7 +52,6 @@ impl Resolver {
         let orig_question = query_packet.questions.first().ok_or_else(|| {
             DnsError::ResolveError("Invalid request: no question supplied".to_string())
         })?;
-        let header = &query_packet.header;
         let mut domain_name = orig_question.name.clone();
         let record_type = orig_question.qtype;
         let mut answers: Vec<DnsRecord> = vec![];
@@ -62,7 +62,7 @@ impl Resolver {
             if let Some(record) = self.cache.lookup(&question) {
                 debug!("Cache hit");
                 answers.push(record.clone());
-                let response = Self::build_response(header, orig_question, answers);
+                let response = Self::build_response(query_packet.header, orig_question, answers);
                 return response;
             }
             debug!("Cache miss");
@@ -75,7 +75,8 @@ impl Resolver {
                         let answer_string = answer.data.to_string();
                         debug!("Got ip: {}", answer_string);
                         answers.push(answer.clone());
-                        let response = Self::build_response(header, orig_question, answers);
+                        let response =
+                            Self::build_response(query_packet.header, orig_question, answers);
                         return response;
                     }
                     Type::CNAME => {
