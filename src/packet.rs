@@ -3,7 +3,6 @@ use crate::header::DnsHeader;
 use crate::question::DnsQuestion;
 use crate::record::DnsRecord;
 use crate::rr_fields::{HeaderFlags, Type};
-use rand::random;
 use std::io::Cursor;
 use std::net::UdpSocket;
 use std::vec;
@@ -92,16 +91,7 @@ impl DnsPacket {
     }
 
     pub fn packet_from_question(question: DnsQuestion) -> DnsPacket {
-        let id: u16 = random();
-        let no_flags = 0;
-        let header = DnsHeader {
-            id,
-            flags: no_flags,
-            num_questions: 1,
-            num_answers: 0,
-            num_authorities: 0,
-            num_additionals: 0,
-        };
+        let header = DnsHeader::simple_query_header();
         DnsPacket {
             header,
             questions: vec![question],
@@ -112,16 +102,7 @@ impl DnsPacket {
     }
 
     pub fn build_query(question: &DnsQuestion) -> Result<Vec<u8>, DnsError> {
-        let id: u16 = random();
-        let no_recursion = 0;
-        let header = DnsHeader {
-            id,
-            flags: no_recursion,
-            num_questions: 1,
-            num_answers: 0,
-            num_authorities: 0,
-            num_additionals: 0,
-        };
+        let header = DnsHeader::simple_query_header();
         let mut query_bytes = header.to_bytes()?;
         query_bytes.append(&mut question.to_bytes());
         Ok(query_bytes)

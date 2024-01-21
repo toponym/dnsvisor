@@ -20,6 +20,10 @@ else
 	# use server
 	IP=$(dig +short +noedns @127.0.0.1 -p 1053 $SITE | tail -n 1)
 fi
+if [[ -z "$IP" ]]; then
+	echo "Error: dig didn't return an IP"
+	exit 1
+fi
 echo "Using IP: $IP"
 curl -L -o $FILE --resolve $SITE:80:$IP http://$SITE
 open $FILE

@@ -113,53 +113,18 @@ impl Resolver {
         record_type: Type,
     ) -> Result<String, DnsError> {
         // Verisign root nameserver
-        let root_nameserver = String::from("198.41.0.4");
-        let mut nameserver = root_nameserver;
-        let mut domain_name = String::from(req_domain_name);
-        loop {
-            info!("Querying {} for {}", nameserver, domain_name);
-            let question = DnsQuestion::new(&domain_name, record_type, Class::CLASS_IN);
-            // check cache
-            if let Some(record) = self.cache.lookup(&question) {
-                debug!("Cache hit");
-                return Ok(record.data.clone());
-            }
-            debug!("Cache miss");
-            // otherwise ask remote resolver
-            let response = DnsPacket::send_query(&nameserver, &question)?;
-            self.cache.cache_answers(&response)?;
-            if let Some(answer) = response.get_answer() {
-                match answer.rtype {
-                    Type::A => {
-                        let answer_string = answer.data.to_string();
-                        debug!("Got ip: {}", answer_string);
-                        return Ok(answer_string);
-                    }
-                    Type::CNAME => {
-                        let answer_string = answer.data.to_string();
-                        debug!("Got CNAME domain: {}", answer_string);
-                        domain_name = answer_string;
-                    }
-                    _ => {
-                        return Err(DnsError::ResolveError(format!(
-                            "Unexpected answer type: {:?}",
-                            answer.rtype
-                        )))
-                    }
-                }
-            } else if let Some(ns_ip) = response.get_nameserver_ip() {
-                debug!("Got nameserver ip: {}", ns_ip);
-                nameserver = ns_ip.to_string();
-            } else if let Some(ns_domain) = response.get_nameserver() {
-                debug!("Got nameserver domain: {}", ns_domain);
-                nameserver = self.resolve(ns_domain, Type::A)?; // TODO is Type A right?
-            } else {
-                return Err(DnsError::ResolveError(format!(
-                    "Unexpected response: {:?}",
-                    response
-                )));
+        let question = DnsQuestion::new(req_domain_name, record_type, Class::CLASS_IN);
+        let query_packet = DnsPacket::packet_from_question(question);
+        let response_packet = self.resolve_packet(query_packet)?;
+        for answer in response_packet.answers {
+            if answer.rtype == record_type {
+                return Ok(answer.data);
             }
         }
+        Err(DnsError::ResolveError(format!(
+            "No valid answer returned for requested type: {:?}",
+            record_type
+        )))
     }
 }
 impl Default for Resolver {
