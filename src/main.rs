@@ -64,7 +64,7 @@ fn server(ip: &IpAddr, port: &u16) {
                         "Resolver failed with error {:?}. Sending error response.",
                         err
                     );
-                    let err_packet = query_packet.make_err_response(err);
+                    let err_packet = query_packet.make_error_response(err);
                     send_response(err_packet, &src_addr, &socket)
                 }
             },

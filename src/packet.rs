@@ -142,7 +142,7 @@ impl DnsPacket {
         DnsPacket::from_bytes(&buf)
     }
 
-    pub fn make_err_response(self, err: DnsError) -> DnsPacket {
+    pub fn make_error_response(self, err: DnsError) -> DnsPacket {
         let error_rcode = match err {
             DnsError::NotImplementedError(_) => HeaderFlags::RCODE_NOT_IMPL,
             DnsError::CacheError(_)
