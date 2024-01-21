@@ -1,5 +1,6 @@
 use crate::cursor_read_num;
 use crate::error::DnsError;
+use rand::random;
 use std::io::Cursor;
 use std::io::Read;
 #[derive(Debug, PartialEq, Clone)]
@@ -34,6 +35,19 @@ impl DnsHeader {
             num_authorities: cursor_read_num!(reader, buf_16, u16::from_be_bytes),
             num_additionals: cursor_read_num!(reader, buf_16, u16::from_be_bytes),
         })
+    }
+
+    pub fn simple_query_header() -> Self {
+        let id: u16 = random();
+        let no_recursion = 0;
+        Self {
+            id,
+            flags: no_recursion,
+            num_questions: 1,
+            num_answers: 0,
+            num_authorities: 0,
+            num_additionals: 0,
+        }
     }
 }
 
