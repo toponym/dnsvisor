@@ -85,6 +85,13 @@ impl Resolver {
                         answers.push(answer.clone());
                         domain_name = answer_string.clone();
                     }
+                    Rdata::MX(rdata_mx) => {
+                        debug!("Got MX record: {}", rdata_mx.exchange);
+                        answers.push(answer.clone());
+                        let response =
+                            Self::build_response(query_packet.header, orig_question, answers);
+                        return response;
+                    }
                     _ => {
                         return Err(DnsError::ResolveError(format!(
                             "Unexpected answer type: {:?}",

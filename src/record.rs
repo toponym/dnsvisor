@@ -23,15 +23,7 @@ pub enum Rdata {
     CNAME(String),
     AAAA(String),
     SOA(RdataSOA),
-}
-#[derive(Debug, PartialEq, Clone)]
-pub struct RdataSOA {
-    mname: String,
-    rname: String,
-    serial: u32,
-    refresh: u32,
-    retry: u32,
-    expire: u32,
+    MX(RdataMX),
 }
 
 impl DnsRecord {
@@ -42,6 +34,7 @@ impl DnsRecord {
             Rdata::CNAME(_) => Type::CNAME,
             Rdata::AAAA(_) => Type::AAAA,
             Rdata::SOA(_) => Type::SOA,
+            Rdata::MX(_) => Type::MX,
         }
     }
 
@@ -103,6 +96,8 @@ impl DnsRecord {
                 Ok(Rdata::AAAA(addr.to_string()))
             }
             Type::CNAME => Ok(Rdata::CNAME(decode_dns_name(reader)?)),
+            Type::SOA => Ok(Rdata::SOA(RdataSOA::from_bytes(reader)?)),
+            Type::MX => Ok(Rdata::MX(RdataMX::from_bytes(reader)?)),
             _ => Err(DnsError::NotImplementedError(format!(
                 "Decoding data for type {:?} not supported yet",
                 rtype
@@ -126,10 +121,8 @@ impl DnsRecord {
                 Ok(u128::from(addr).to_be_bytes().to_vec())
             }
             Rdata::CNAME(string) => Ok(encode_dns_name(string)),
-            _ => Err(DnsError::NotImplementedError(format!(
-                "Encoding data for type {:?} not supported yet",
-                self.rdata
-            ))),
+            Rdata::SOA(rdata_soa) => rdata_soa.to_bytes(),
+            Rdata::MX(rdata_mx) => rdata_mx.to_bytes(),
         }
     }
 
@@ -139,6 +132,72 @@ impl DnsRecord {
             qtype: self.get_type(),
             class: self.class,
         }
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct RdataSOA {
+    pub mname: String,
+    rname: String,
+    serial: u32,
+    refresh: u32,
+    retry: u32,
+    expire: u32,
+}
+
+impl RdataSOA {
+    pub fn from_bytes(reader: &mut Cursor<&[u8]>) -> Result<Self, DnsError> {
+        let mut buf_32 = [0u8; 4];
+        let mname = decode_dns_name(reader)?;
+        let rname = decode_dns_name(reader)?;
+        let serial = cursor_read_num!(reader, buf_32, u32::from_be_bytes);
+        let refresh = cursor_read_num!(reader, buf_32, u32::from_be_bytes);
+        let retry = cursor_read_num!(reader, buf_32, u32::from_be_bytes);
+        let expire = cursor_read_num!(reader, buf_32, u32::from_be_bytes);
+        Ok(Self {
+            mname,
+            rname,
+            serial,
+            refresh,
+            retry,
+            expire,
+        })
+    }
+
+    pub fn to_bytes(&self) -> Result<Vec<u8>, DnsError> {
+        let mut bytes: Vec<u8> = vec![];
+        bytes.append(&mut encode_dns_name(&self.mname));
+        bytes.append(&mut encode_dns_name(&self.rname));
+        bytes.extend_from_slice(&u32::to_be_bytes(self.serial));
+        bytes.extend_from_slice(&u32::to_be_bytes(self.refresh));
+        bytes.extend_from_slice(&u32::to_be_bytes(self.retry));
+        bytes.extend_from_slice(&u32::to_be_bytes(self.expire));
+        Ok(bytes)
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct RdataMX {
+    preference: u16,
+    pub exchange: String,
+}
+
+impl RdataMX {
+    pub fn from_bytes(reader: &mut Cursor<&[u8]>) -> Result<Self, DnsError> {
+        let mut buf_16 = [0u8; 2];
+        let preference = cursor_read_num!(reader, buf_16, u16::from_be_bytes);
+        let exchange = decode_dns_name(reader)?;
+        Ok(Self {
+            preference,
+            exchange,
+        })
+    }
+
+    pub fn to_bytes(&self) -> Result<Vec<u8>, DnsError> {
+        let mut bytes: Vec<u8> = vec![];
+        bytes.extend_from_slice(&u16::to_be_bytes(self.preference));
+        bytes.append(&mut encode_dns_name(&self.exchange));
+        Ok(bytes)
     }
 }
 
