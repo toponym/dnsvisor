@@ -48,7 +48,7 @@ impl DnsCache {
 
     fn should_cache(record: &DnsRecord) -> bool {
         matches!(
-            record.rtype,
+            record.get_type(),
             Type::A | Type::NS | Type::CNAME | Type::MX | Type::AAAA
         )
     }
@@ -87,6 +87,7 @@ impl DnsCacheEntry {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::record::Rdata;
     use crate::rr_fields::*;
     use pretty_assertions::assert_eq;
     use std::thread;
@@ -96,10 +97,9 @@ mod tests {
         let expected = false;
         let record = DnsRecord {
             name: String::from("placeholder"),
-            rtype: Type::A,
             class: Class::CLASS_IN,
             ttl: ttl,
-            data: String::from(""),
+            rdata: Rdata::A(String::from("")),
         };
         let entry = DnsCacheEntry::new(record).unwrap();
         let res = entry.expired();
@@ -112,10 +112,9 @@ mod tests {
         let expected = true;
         let record = DnsRecord {
             name: String::from("example.com"),
-            rtype: Type::A,
             class: Class::CLASS_IN,
             ttl: ttl,
-            data: String::from(""),
+            rdata: Rdata::A(String::from("")),
         };
         let entry = DnsCacheEntry::new(record);
         thread::sleep(sleep_time);
@@ -143,10 +142,9 @@ mod tests {
         };
         let record = DnsRecord {
             name: "example.com".to_string(),
-            rtype: Type::A,
             class: Class::CLASS_IN,
             ttl: 5,
-            data: "127.0.0.1".to_string(),
+            rdata: Rdata::A("127.0.0.1".to_string()),
         };
         let question = record.get_question();
         cache.add(&record).unwrap();
@@ -161,10 +159,9 @@ mod tests {
         };
         let record = DnsRecord {
             name: "example.com".to_string(),
-            rtype: Type::A,
             class: Class::CLASS_IN,
             ttl: 0,
-            data: "127.0.0.1".to_string(),
+            rdata: Rdata::A("127.0.0.1".to_string()),
         };
         let question = record.get_question();
         cache.add(&record).unwrap();
