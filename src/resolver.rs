@@ -3,7 +3,7 @@ use crate::error::DnsError;
 use crate::header::DnsHeader;
 use crate::packet::DnsPacket;
 use crate::question::DnsQuestion;
-use crate::record::DnsRecord;
+use crate::record::{DnsRecord, Rdata};
 use crate::rr_fields::{Class, HeaderFlags, Type};
 use log::{debug, info};
 
@@ -70,25 +70,25 @@ impl Resolver {
             let response = DnsPacket::send_query(&nameserver, &question)?;
             self.cache.cache_answers(&response)?;
             if let Some(answer) = response.get_answer() {
-                match answer.rtype {
-                    Type::A => {
-                        let answer_string = answer.data.to_string();
+                match &answer.rdata {
+                    Rdata::A(string) => {
+                        let answer_string = string;
                         debug!("Got ip: {}", answer_string);
                         answers.push(answer.clone());
                         let response =
                             Self::build_response(query_packet.header, orig_question, answers);
                         return response;
                     }
-                    Type::CNAME => {
-                        let answer_string = answer.data.to_string();
+                    Rdata::CNAME(string) => {
+                        let answer_string = string;
                         debug!("Got CNAME domain: {}", answer_string);
                         answers.push(answer.clone());
-                        domain_name = answer_string;
+                        domain_name = answer_string.clone();
                     }
                     _ => {
                         return Err(DnsError::ResolveError(format!(
                             "Unexpected answer type: {:?}",
-                            answer.rtype
+                            answer.get_type()
                         )))
                     }
                 }
@@ -117,8 +117,13 @@ impl Resolver {
         let query_packet = DnsPacket::packet_from_question(question);
         let response_packet = self.resolve_packet(query_packet)?;
         for answer in response_packet.answers {
-            if answer.rtype == record_type {
-                return Ok(answer.data);
+            if answer.get_type() == record_type {
+                match answer.rdata {
+                    Rdata::A(string) => return Ok(string),
+                    Rdata::AAAA(string) => return Ok(string),
+                    Rdata::CNAME(string) => return Ok(string),
+                    _ => continue,
+                }
             }
         }
         Err(DnsError::ResolveError(format!(

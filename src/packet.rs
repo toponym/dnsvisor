@@ -1,8 +1,8 @@
 use crate::error::DnsError;
 use crate::header::DnsHeader;
 use crate::question::DnsQuestion;
-use crate::record::DnsRecord;
-use crate::rr_fields::{HeaderFlags, Type};
+use crate::record::{DnsRecord, Rdata};
+use crate::rr_fields::HeaderFlags;
 use std::io::Cursor;
 use std::net::UdpSocket;
 use std::vec;
@@ -64,9 +64,11 @@ impl DnsPacket {
 
     pub fn get_answer(&self) -> Option<&DnsRecord> {
         for answer in &self.answers {
-            let answer_type = answer.rtype;
-            if answer_type == Type::A || answer_type == Type::CNAME {
-                return Some(answer);
+            match answer.rdata {
+                Rdata::A(_) | Rdata::CNAME(_) | Rdata::AAAA(_) => {
+                    return Some(answer);
+                }
+                _ => continue,
             }
         }
         None
@@ -74,8 +76,8 @@ impl DnsPacket {
 
     pub fn get_nameserver_ip(&self) -> Option<&str> {
         for record in &self.additionals {
-            if record.rtype == Type::A {
-                return Some(&record.data);
+            if let Rdata::A(string) = &record.rdata {
+                return Some(string);
             }
         }
         None
@@ -83,8 +85,8 @@ impl DnsPacket {
 
     pub fn get_nameserver(&self) -> Option<&str> {
         for auth in &self.authorities {
-            if auth.rtype == Type::NS {
-                return Some(&auth.data);
+            if let Rdata::NS(string) = &auth.rdata {
+                return Some(string);
             }
         }
         None
@@ -177,10 +179,9 @@ mod tests {
             }],
             answers: vec![DnsRecord {
                 name: "completion.amazon.com".to_string(),
-                rtype: Type::A,
                 class: Class::CLASS_IN,
                 ttl: 37,
-                data: "44.215.142.139".to_string(),
+                rdata: Rdata::A("44.215.142.139".to_string()),
             }],
         };
         let decoded = DnsPacket::from_bytes(&packet_bytes);
@@ -209,10 +210,9 @@ mod tests {
             }],
             answers: vec![DnsRecord {
                 name: "completion.amazon.com".to_string(),
-                rtype: Type::A,
                 class: Class::CLASS_IN,
                 ttl: 37,
-                data: "44.215.142.139".to_string(),
+                rdata: Rdata::A("44.215.142.139".to_string()),
             }],
         };
         let result: Vec<u8> = packet.to_bytes().unwrap();
@@ -222,10 +222,9 @@ mod tests {
     fn test_get_answer() {
         let record = DnsRecord {
             name: "encrypted-tbn0.gstatic.com".to_string(),
-            rtype: Type::A,
             class: Class::CLASS_IN,
             ttl: 96,
-            data: "142.251.40.174".to_string(),
+            rdata: Rdata::A("142.251.40.174".to_string()),
         };
         let packet = DnsPacket {
             header: DnsHeader {
