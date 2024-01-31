@@ -65,7 +65,7 @@ impl DnsPacket {
     pub fn get_answer(&self) -> Option<&DnsRecord> {
         for answer in &self.answers {
             match answer.rdata {
-                Rdata::A(_) | Rdata::CNAME(_) | Rdata::AAAA(_) => {
+                Rdata::A(_) | Rdata::CNAME(_) | Rdata::AAAA(_) | Rdata::MX(_) => {
                     return Some(answer);
                 }
                 _ => continue,
