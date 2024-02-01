@@ -6,15 +6,18 @@ use crate::question::DnsQuestion;
 use crate::record::{DnsRecord, Rdata};
 use crate::rr_fields::{Class, HeaderFlags, Type};
 use log::{debug, info};
+use std::collections::HashSet;
 
 pub struct Resolver {
     cache: DnsCache,
+    blocklist: HashSet<String>,
 }
 
 impl Resolver {
-    pub fn new() -> Self {
+    pub fn new(blocklist: HashSet<String>) -> Self {
         Resolver {
             cache: DnsCache::new(),
+            blocklist,
         }
     }
 
@@ -55,6 +58,18 @@ impl Resolver {
         let mut domain_name = orig_question.name.clone();
         let record_type = orig_question.qtype;
         let mut answers: Vec<DnsRecord> = vec![];
+        if self.blocklist.contains(&domain_name) {
+            debug!("Blocklisted domain: {}", domain_name);
+            let loopback_record = DnsRecord {
+                name: domain_name,
+                class: Class::CLASS_IN,
+                ttl: 43200,
+                rdata: Rdata::A("0.0.0.0".to_string()),
+            };
+            answers.push(loopback_record);
+            let response = Self::build_response(query_packet.header, orig_question, answers);
+            return response;
+        }
         loop {
             info!("Querying {} for {}", nameserver, domain_name);
             let question = DnsQuestion::new(&domain_name, record_type, Class::CLASS_IN);
@@ -141,6 +156,6 @@ impl Resolver {
 }
 impl Default for Resolver {
     fn default() -> Self {
-        Self::new()
+        Self::new(HashSet::new())
     }
 }

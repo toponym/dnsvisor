@@ -4,12 +4,15 @@ use dnsvisor::packet::DnsPacket;
 use dnsvisor::resolver::Resolver;
 use dnsvisor::rr_fields::Type;
 use log::{debug, error, warn};
-use std::io::{stdin, stdout, Write};
+use std::collections::HashSet;
+use std::fs::File;
+use std::io::{self, stdin, stdout, BufRead, BufReader, Write};
 use std::net::{IpAddr, SocketAddr, UdpSocket};
+use std::path::PathBuf;
 use std::process::exit;
 
 fn interactive() {
-    let mut resolver = Resolver::new();
+    let mut resolver = Resolver::default();
     loop {
         print!("Enter a domain> ");
         stdout().flush().unwrap_or_else(|_| {
@@ -37,8 +40,12 @@ fn interactive() {
     }
 }
 
-fn server(ip: &IpAddr, port: &u16) {
-    let mut resolver = Resolver::new();
+fn server(ip: &IpAddr, port: &u16, blocklist_option: Option<&PathBuf>) {
+    let blocklist = build_blocklist(blocklist_option).unwrap_or_else(|_| {
+        eprintln!("Failed to read blocklist");
+        exit(1);
+    });
+    let mut resolver = Resolver::new(blocklist);
     let addr = SocketAddr::from((*ip, *port));
     let socket = UdpSocket::bind(addr).unwrap_or_else(|_| {
         eprintln!("Failed to bind to socket");
@@ -74,6 +81,22 @@ fn server(ip: &IpAddr, port: &u16) {
             ),
         }
     }
+}
+
+fn build_blocklist(blocklist_option: Option<&PathBuf>) -> io::Result<HashSet<String>> {
+    let mut blocklist = HashSet::new();
+    if let Some(blocklist_path) = blocklist_option {
+        let file = File::open(blocklist_path)?;
+        let reader = BufReader::new(file);
+        for line_result in reader.lines() {
+            let line = line_result?;
+            // skip commented lines
+            if !line.starts_with('#') {
+                blocklist.insert(line);
+            }
+        }
+    }
+    Ok(blocklist)
 }
 
 fn send_response(packet: DnsPacket, src_addr: &SocketAddr, socket: &UdpSocket) {
@@ -118,6 +141,15 @@ fn main() {
                         .help("Server Port")
                         .required(true)
                         .value_parser(clap::value_parser!(u16)),
+                )
+                .arg(
+                    Arg::new("blocklist")
+                        .short('b')
+                        .long("blocklist")
+                        .help("File with list of domains to blocklist")
+                        .value_name("FILE")
+                        .required(false)
+                        .value_parser(clap::value_parser!(PathBuf)),
                 ),
         );
     let matches = cmd.get_matches();
@@ -130,7 +162,8 @@ fn main() {
             let port = matches
                 .get_one::<u16>("port")
                 .unwrap_or_else(|| exit_invalid_args!());
-            server(ip_address, port);
+            let blocklist_option = matches.get_one::<PathBuf>("blocklist");
+            server(ip_address, port, blocklist_option);
         }
         _ => exit_invalid_args!(),
     }
