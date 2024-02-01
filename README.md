@@ -27,7 +27,7 @@ another-domain-name.com
 ```
 A resource for blocklists is: [dns-blocklists](https://github.com/hagezi/dns-blocklists).
 ### Browser script
-The script `browse.zsh` will use dig to query this server and open webpage in your browser. Helpful for confirming the retrieved IPs are correct.
+The script `browse.zsh` will use `dig` to query this server and open the webpage in your browser. Helpful for confirming the retrieved IPs are correct.
 
 ## Interactive
 Running `cargo run interactive` opens a prompt to query domain names.
