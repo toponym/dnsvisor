@@ -5,7 +5,10 @@ use crate::record::{DnsRecord, Rdata};
 use crate::rr_fields::HeaderFlags;
 use std::io::Cursor;
 use std::net::UdpSocket;
+use std::time::Duration;
 use std::vec;
+
+const UDP_TIMEOUT_SEC: u64 = 1;
 
 #[derive(Debug, PartialEq, Clone)]
 #[allow(dead_code)]
@@ -116,6 +119,10 @@ impl DnsPacket {
         let query = Self::build_query(question)?;
         let socket = UdpSocket::bind("0.0.0.0:0")
             .map_err(|_| DnsError::NetworkError("Failed binding to socket"))?;
+        let timeout = Duration::new(UDP_TIMEOUT_SEC, 0);
+        socket
+            .set_read_timeout(Some(timeout))
+            .map_err(|_| DnsError::NetworkError("Query timeout"))?;
         let _res = socket
             .send_to(&query, (nameserver, 53))
             .map_err(|_| DnsError::NetworkError("Failed sending query"))?;
