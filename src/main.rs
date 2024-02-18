@@ -8,10 +8,10 @@ use std::collections::HashSet;
 use std::fs::File;
 use std::io::{self, stdin, stdout, BufRead, BufReader, Write};
 use std::net::{IpAddr, SocketAddr};
-use tokio::net::UdpSocket;
 use std::path::PathBuf;
 use std::process::exit;
 use std::sync::Arc;
+use tokio::net::UdpSocket;
 
 async fn interactive() {
     let mut resolver = Resolver::default();
@@ -56,22 +56,25 @@ async fn handle_request(mut resolver: Resolver, socket: Arc<UdpSocket>) {
     let query_packet = match DnsPacket::from_bytes(&buf[..]) {
         Ok(packet) => packet,
         Err(err) => {
-            error!("Failed to decode request packet with error {:?}. Skipping.",err);
+            error!(
+                "Failed to decode request packet with error {:?}. Skipping.",
+                err
+            );
             return;
         }
     };
     let response_res = resolver.resolve_packet(query_packet.clone()).await;
     match response_res {
-            Ok(response_packet) => send_response(response_packet, &src_addr, &socket).await,
-            Err(err) => {
-                error!(
-                    "Resolver failed with error {:?}. Sending error response.",
-                    err
-                );
-                let err_packet = query_packet.make_error_response(err);
-                send_response(err_packet, &src_addr, &socket).await
-            }
+        Ok(response_packet) => send_response(response_packet, &src_addr, &socket).await,
+        Err(err) => {
+            error!(
+                "Resolver failed with error {:?}. Sending error response.",
+                err
+            );
+            let err_packet = query_packet.make_error_response(err);
+            send_response(err_packet, &src_addr, &socket).await
         }
+    }
 }
 
 async fn server(ip: &IpAddr, port: &u16, blocklist_option: Option<&PathBuf>) {
@@ -92,9 +95,7 @@ async fn server(ip: &IpAddr, port: &u16, blocklist_option: Option<&PathBuf>) {
             blocklist: resolver.blocklist.clone(),
         };
         let socket_clone = socket.clone();
-        tokio::spawn( async move {
-            handle_request(resolver_clone, socket_clone).await
-        });
+        tokio::spawn(async move { handle_request(resolver_clone, socket_clone).await });
     }
 }
 

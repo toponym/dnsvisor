@@ -5,10 +5,10 @@ use crate::packet::DnsPacket;
 use crate::question::DnsQuestion;
 use crate::record::{DnsRecord, Rdata};
 use crate::rr_fields::{Class, HeaderFlags, Type};
+use async_recursion::async_recursion;
 use log::{debug, info};
 use std::collections::HashSet;
-use async_recursion::async_recursion;
-use std::sync::{RwLock, Mutex,Arc};
+use std::sync::{Arc, Mutex, RwLock};
 
 pub struct Resolver {
     pub cache: Arc<Mutex<DnsCache>>,
@@ -61,32 +61,47 @@ impl Resolver {
         let mut domain_name = orig_question.name.clone();
         let record_type = orig_question.qtype;
         let mut answers: Vec<DnsRecord> = vec![];
-        if self.blocklist.read().unwrap().contains(&domain_name) {
-            debug!("Blocklisted domain: {}", domain_name);
-            let loopback_record = DnsRecord {
-                name: domain_name,
-                class: Class::CLASS_IN,
-                ttl: 43200,
-                rdata: Rdata::A("0.0.0.0".to_string()),
-            };
-            answers.push(loopback_record);
-            let response = Self::build_response(query_packet.header, orig_question, answers);
-            return response;
+        if let Ok(blocklist_lock) = self.blocklist.read() {
+            if blocklist_lock.contains(&domain_name) {
+                debug!("Blocklisted domain: {}", domain_name);
+                let loopback_record = DnsRecord {
+                    name: domain_name,
+                    class: Class::CLASS_IN,
+                    ttl: 43200,
+                    rdata: Rdata::A("0.0.0.0".to_string()),
+                };
+                answers.push(loopback_record);
+                let response = Self::build_response(query_packet.header, orig_question, answers);
+                return response;
+            }
+        } else {
+            return Err(DnsError::ResolveError(
+                "Failed to unlock blocklist".to_string(),
+            ));
         }
         loop {
             info!("Querying {} for {}", nameserver, domain_name);
             let question = DnsQuestion::new(&domain_name, record_type, Class::CLASS_IN);
             // check cache
-            if let Some(record) = self.cache.lock().unwrap().lookup(&question) {
-                debug!("Cache hit");
-                answers.push(record.clone());
-                let response = Self::build_response(query_packet.header, orig_question, answers);
-                return response;
+            if let Ok(mut cache_lock) = self.cache.lock() {
+                if let Some(record) = cache_lock.lookup(&question) {
+                    debug!("Cache hit");
+                    answers.push(record.clone());
+                    let response =
+                        Self::build_response(query_packet.header, orig_question, answers);
+                    return response;
+                }
+            } else {
+                return Err(DnsError::ResolveError("Failed to unlock cache".to_string()));
             }
             debug!("Cache miss");
             // otherwise ask remote resolver
             let response = DnsPacket::send_query(&nameserver, &question)?;
-            self.cache.lock().unwrap().cache_answers(&response)?;
+            if let Ok(mut cache_lock) = self.cache.lock() {
+                cache_lock.cache_answers(&response)?;
+            } else {
+                return Err(DnsError::ResolveError("Failed to unlock cache".to_string()));
+            }
             if let Some(answer) = response.get_answer() {
                 match &answer.rdata {
                     Rdata::A(string) => {
