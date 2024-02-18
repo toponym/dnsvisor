@@ -7,11 +7,13 @@ use log::{debug, error, warn};
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::{self, stdin, stdout, BufRead, BufReader, Write};
-use std::net::{IpAddr, SocketAddr, UdpSocket};
+use std::net::{IpAddr, SocketAddr};
+use tokio::net::UdpSocket;
 use std::path::PathBuf;
 use std::process::exit;
+use std::sync::Arc;
 
-fn interactive() {
+async fn interactive() {
     let mut resolver = Resolver::default();
     loop {
         print!("Enter a domain> ");
@@ -33,53 +35,66 @@ fn interactive() {
         if domain_name.is_empty() {
             exit(0)
         }
-        match resolver.resolve(domain_name, Type::A) {
+        match resolver.resolve(domain_name, Type::A).await {
             Ok(ip) => println!("Domain IP: {}", ip),
             Err(err) => println!("Resolver failed with error: {:?}", err),
         }
     }
 }
 
-fn server(ip: &IpAddr, port: &u16, blocklist_option: Option<&PathBuf>) {
+async fn handle_request(mut resolver: Resolver, socket: Arc<UdpSocket>) {
+    // Per RFC 1035 the max size for UDP messages is 512 bytes
+    let mut buf = [0u8; 512];
+    let (_n_bytes, src_addr) = match socket.recv_from(&mut buf).await {
+        Ok((n_bytes, src_addr)) => (n_bytes, src_addr),
+        Err(_) => {
+            error!("Failed to receive request from socket");
+            return;
+        }
+    };
+    debug!("Received request from {:?}", src_addr);
+    let query_packet = match DnsPacket::from_bytes(&buf[..]) {
+        Ok(packet) => packet,
+        Err(err) => {
+            error!("Failed to decode request packet with error {:?}. Skipping.",err);
+            return;
+        }
+    };
+    let response_res = resolver.resolve_packet(query_packet.clone()).await;
+    match response_res {
+            Ok(response_packet) => send_response(response_packet, &src_addr, &socket).await,
+            Err(err) => {
+                error!(
+                    "Resolver failed with error {:?}. Sending error response.",
+                    err
+                );
+                let err_packet = query_packet.make_error_response(err);
+                send_response(err_packet, &src_addr, &socket).await
+            }
+        }
+}
+
+async fn server(ip: &IpAddr, port: &u16, blocklist_option: Option<&PathBuf>) {
     let blocklist = build_blocklist(blocklist_option).unwrap_or_else(|_| {
         eprintln!("Failed to read blocklist");
         exit(1);
     });
-    let mut resolver = Resolver::new(blocklist);
+    let resolver = Resolver::new(blocklist);
     let addr = SocketAddr::from((*ip, *port));
-    let socket = UdpSocket::bind(addr).unwrap_or_else(|_| {
+    let socket = Arc::new(UdpSocket::bind(addr).await.unwrap_or_else(|_| {
         eprintln!("Failed to bind to socket");
         exit(1);
-    });
+    }));
     debug!("Server listening on {:?}", socket);
     loop {
-        // Per RFC 1035 the max size for UDP messages is 512 bytes
-        let mut buf = [0u8; 512];
-        let (_n_bytes, src_addr) = match socket.recv_from(&mut buf) {
-            Ok((n_bytes, src_addr)) => (n_bytes, src_addr),
-            Err(_) => {
-                error!("Failed to receive request from socket");
-                continue;
-            }
+        let resolver_clone = Resolver {
+            cache: resolver.cache.clone(),
+            blocklist: resolver.blocklist.clone(),
         };
-        debug!("Received request from {:?}", src_addr);
-        match DnsPacket::from_bytes(&buf[..]) {
-            Ok(query_packet) => match resolver.resolve_packet(query_packet.clone()) {
-                Ok(response_packet) => send_response(response_packet, &src_addr, &socket),
-                Err(err) => {
-                    error!(
-                        "Resolver failed with error {:?}. Sending error response.",
-                        err
-                    );
-                    let err_packet = query_packet.make_error_response(err);
-                    send_response(err_packet, &src_addr, &socket)
-                }
-            },
-            Err(err) => error!(
-                "Failed to decode request packet with error {:?}. Skipping.",
-                err
-            ),
-        }
+        let socket_clone = socket.clone();
+        tokio::spawn( async move {
+            handle_request(resolver_clone, socket_clone).await
+        });
     }
 }
 
@@ -99,11 +114,11 @@ fn build_blocklist(blocklist_option: Option<&PathBuf>) -> io::Result<HashSet<Str
     Ok(blocklist)
 }
 
-fn send_response(packet: DnsPacket, src_addr: &SocketAddr, socket: &UdpSocket) {
+async fn send_response(packet: DnsPacket, src_addr: &SocketAddr, socket: &UdpSocket) {
     debug!("Sending response to {:?}", src_addr);
     match packet.to_bytes() {
         Ok(bytes) => {
-            if let Err(err) = socket.send_to(&bytes, src_addr) {
+            if let Err(err) = socket.send_to(&bytes, src_addr).await {
                 error!("Failed to send response with error: {:?}. Skipping.", err)
             }
         }
@@ -121,7 +136,8 @@ macro_rules! exit_invalid_args {
     }};
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     env_logger::builder().format_timestamp(None).init();
     let cmd = Command::new("dnsvisor")
         .about("DNS resolver")
@@ -154,7 +170,7 @@ fn main() {
         );
     let matches = cmd.get_matches();
     match matches.subcommand() {
-        Some(("interactive", _matches)) => interactive(),
+        Some(("interactive", _matches)) => interactive().await,
         Some(("server", matches)) => {
             let ip_address = matches
                 .get_one::<IpAddr>("ip_address")
@@ -163,7 +179,7 @@ fn main() {
                 .get_one::<u16>("port")
                 .unwrap_or_else(|| exit_invalid_args!());
             let blocklist_option = matches.get_one::<PathBuf>("blocklist");
-            server(ip_address, port, blocklist_option);
+            server(ip_address, port, blocklist_option).await;
         }
         _ => exit_invalid_args!(),
     }

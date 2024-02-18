@@ -7,17 +7,19 @@ use crate::record::{DnsRecord, Rdata};
 use crate::rr_fields::{Class, HeaderFlags, Type};
 use log::{debug, info};
 use std::collections::HashSet;
+use async_recursion::async_recursion;
+use std::sync::{RwLock, Mutex,Arc};
 
 pub struct Resolver {
-    cache: DnsCache,
-    blocklist: HashSet<String>,
+    pub cache: Arc<Mutex<DnsCache>>,
+    pub blocklist: Arc<RwLock<HashSet<String>>>,
 }
 
 impl Resolver {
     pub fn new(blocklist: HashSet<String>) -> Self {
         Resolver {
-            cache: DnsCache::new(),
-            blocklist,
+            cache: Arc::new(Mutex::new(DnsCache::new())),
+            blocklist: Arc::new(RwLock::new(blocklist)),
         }
     }
 
@@ -47,7 +49,8 @@ impl Resolver {
         })
     }
 
-    pub fn resolve_packet(&mut self, query_packet: DnsPacket) -> Result<DnsPacket, DnsError> {
+    #[async_recursion]
+    pub async fn resolve_packet(&mut self, query_packet: DnsPacket) -> Result<DnsPacket, DnsError> {
         // Verisign root nameserver
         let root_nameserver = String::from("198.41.0.4");
         let mut nameserver = root_nameserver;
@@ -58,7 +61,7 @@ impl Resolver {
         let mut domain_name = orig_question.name.clone();
         let record_type = orig_question.qtype;
         let mut answers: Vec<DnsRecord> = vec![];
-        if self.blocklist.contains(&domain_name) {
+        if self.blocklist.read().unwrap().contains(&domain_name) {
             debug!("Blocklisted domain: {}", domain_name);
             let loopback_record = DnsRecord {
                 name: domain_name,
@@ -74,7 +77,7 @@ impl Resolver {
             info!("Querying {} for {}", nameserver, domain_name);
             let question = DnsQuestion::new(&domain_name, record_type, Class::CLASS_IN);
             // check cache
-            if let Some(record) = self.cache.lookup(&question) {
+            if let Some(record) = self.cache.lock().unwrap().lookup(&question) {
                 debug!("Cache hit");
                 answers.push(record.clone());
                 let response = Self::build_response(query_packet.header, orig_question, answers);
@@ -83,7 +86,7 @@ impl Resolver {
             debug!("Cache miss");
             // otherwise ask remote resolver
             let response = DnsPacket::send_query(&nameserver, &question)?;
-            self.cache.cache_answers(&response)?;
+            self.cache.lock().unwrap().cache_answers(&response)?;
             if let Some(answer) = response.get_answer() {
                 match &answer.rdata {
                     Rdata::A(string) => {
@@ -119,7 +122,7 @@ impl Resolver {
                 nameserver = ns_ip.to_string();
             } else if let Some(ns_domain) = response.get_nameserver() {
                 debug!("Got nameserver domain: {}", ns_domain);
-                nameserver = self.resolve(ns_domain, Type::A)?; // TODO is Type A right?
+                nameserver = self.resolve(ns_domain, Type::A).await?; // TODO is Type A right?
             } else {
                 return Err(DnsError::ResolveError(format!(
                     "Unexpected response: {:?}",
@@ -129,7 +132,8 @@ impl Resolver {
         }
     }
 
-    pub fn resolve(
+    #[async_recursion]
+    pub async fn resolve(
         &mut self,
         req_domain_name: &str,
         record_type: Type,
@@ -137,7 +141,7 @@ impl Resolver {
         // Verisign root nameserver
         let question = DnsQuestion::new(req_domain_name, record_type, Class::CLASS_IN);
         let query_packet = DnsPacket::packet_from_question(question);
-        let response_packet = self.resolve_packet(query_packet)?;
+        let response_packet = self.resolve_packet(query_packet).await?;
         for answer in response_packet.answers {
             if answer.get_type() == record_type {
                 match answer.rdata {
