@@ -4,13 +4,14 @@ use dnsvisor::rr_fields::Type;
 use std::env;
 use std::process;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let args: Vec<String> = env::args().collect();
     let domain_name = &args[1];
     env_logger::builder().format_timestamp(None).init();
     println!("Looking up domain: {}", domain_name);
     let mut resolver = Resolver::default();
-    match resolver.resolve(domain_name, Type::A) {
+    match resolver.resolve(domain_name, Type::A).await {
         Ok(ip) => {
             println!("Domain IP: {}", ip);
             std::process::exit(0);
